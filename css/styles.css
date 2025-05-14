@@ -1,1 +1,407 @@
+@import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&family=Quicksand:wght@300..700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+:root {
+  --bg: #121212;
+  --panel: #1e1e1e;
+  --fg: #eee;
+  --muted: #b0b3b8;
+  --accent: #ec0000;
+  --deep: #ccc;
+  --hover: #1c1c1c;
+  --border: #333;
+  --input: #1e1e1e;
+}
 
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'Roboto', sans-serif;
+  font-weight: 700;
+}
+ /* Mobile: tighten table and space icons */
+  @media (max-width: 600px) {
+    .container table th {
+      /* no more font-size:0 – labels stay visible */
+      padding: 0.5rem 0;     /* tighten vertical padding */
+      font-size: 0.9rem;     /* optional: scale down heading text */
+    }
+    .container table th i {
+      font-size: 1rem;       /* keep icons legible */
+      margin-right: 0.5rem;  /* add space between icon and text */
+    }
+  }
+header {
+  background: var(--panel);
+  padding: 10px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+}
+
+header h1 {
+  font-size: 20px;
+  margin: 0;
+  flex: 1;
+}
+
+header .file-count {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.container {
+  padding: 15px 20px;
+  position: relative;
+}
+
+#search,
+.search-bar input {
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--input);
+  color: var(--fg);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.toolbar > * {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar button {
+  background: var(--accent);
+  color: #fff;
+}
+
+.toolbar input {
+  background: var(--input);
+  color: #fff;
+  border: 1px solid var(--border);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--panel);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+th, td {
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  color: var(--fg);
+  font-size: 0.95rem;
+}
+
+td {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+tr:hover {
+  background: var(--hover);
+  cursor: pointer;
+}
+
+tr.selected {
+  background: var(--input) !important;
+}
+
+td button {
+  background: var(--accent);
+  border: none;
+  color: #000;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+td form {
+  margin: 0;
+}
+
+.checkbox-col {
+  width: 30px;
+}
+
+input[type=checkbox] {
+  transform: scale(1.2);
+}
+
+.folder-header {
+  margin-top: 30px;
+  font-size: 16px;
+  color: var(--accent);
+}
+
+.folder-badge {
+  background: var(--accent);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #fff;
+}
+
+.empty {
+  margin-top: 20px;
+  font-style: italic;
+  color: var(--deep);
+  text-align: center;
+}
+
+.bin-label {
+  color: var(--deep);
+  font-size: 18px;
+  text-align: center;
+  margin: 10px 0;
+}
+
+/* Responsive Styles */
+@media (max-width: 800px) {
+  table,
+  thead,
+  tbody,
+  th,
+  td,
+  tr {
+    display: block;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tr {
+    margin-bottom: 15px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--input);
+    padding: 12px;
+  }
+
+  td {
+    padding: 10px;
+    border: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  td::before {
+    content: attr(data-label);
+    font-weight: bold;
+    color: var(--fg);
+  }
+
+  td button {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  header,
+  thead {
+    display: none;
+  }
+
+  .container {
+    padding: 10px;
+  }
+
+  td {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  td::before {
+    margin-bottom: 5px;
+  }
+
+  .container.ms .checkbox-col {
+    display: block;
+  }
+
+  .checkbox-col {
+    display: none;
+  }
+
+  td:nth-of-type(2)::before {
+    content: "\f15b Name: ";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+  }
+
+  td:nth-of-type(3)::before {
+    content: "\f0ec Res: ";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+  }
+
+  td:nth-of-type(4)::before {
+    content: "\f1b2 Size: ";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+  }
+
+  td:nth-of-type(5)::before {
+    content: "\f2c2 ID: ";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+  }
+
+  td:nth-of-type(6)::before {
+    content: "\f07b Folder: ";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+  }
+}
+/* Results Per Page Dropdown Container */
+.results-per-page-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 10px;
+  color: #fff;
+  font-size: 14px;
+}
+
+/* Label */
+.results-per-page-container label {
+  font-weight: bold;
+  color: #ffcc00;
+}
+
+/* Select Box Styling */
+.results-per-page-container select {
+  padding: 6px 12px;
+  background-color: #1a1a1a;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  appearance: none;
+  transition: border 0.2s ease, background-color 0.2s ease;
+}
+
+.results-per-page-container select:hover {
+  border-color: #ff0000;
+}
+
+.results-per-page-container select:focus {
+  outline: none;
+  border-color: #ff0000;
+  background-color: #2a2a2a;
+}
+    #clipboardStatus {
+      margin-bottom: 10px;
+      font-size: 14px;
+      color: var(--accent);
+      background: var(--panel);
+      padding: 8px;
+      border-radius: 4px;
+    }
+    #breadcrumbs {
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    #breadcrumbs a {
+      color: var(--accent);
+      text-decoration: none;
+      margin-right: 5px;
+    }
+    #breadcrumbs a:hover {
+      background: var(--hover);
+    }
+    #breadcrumbs span {
+      color: var(--muted);
+      margin-right: 5px;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--panel);
+      padding: 20px;
+      border-radius: 4px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      color: var(--fg);
+    }
+    .modal input, .modal select {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      background: var(--input);
+      border: none;
+      border-radius: 4px;
+      color: var(--fg);
+    }
+    .modal button {
+      background: var(--accent);
+      color: #fff;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .modal button:hover {
+      background: var(--hover);
+    }
+    #modalOverlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 999;
+    }
+    .bin-toggle a {
+      background: var(--accent);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 4px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .bin-toggle a.active {
+      background: var(--hover);
+    }
