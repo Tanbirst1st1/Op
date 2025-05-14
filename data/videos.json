@@ -1,0 +1,18 @@
+{
+    "videos": [
+        {
+            "file_id": "BAACAgUAAxkBAAMgaCAgRuWhNCpJl0ic0NcIW9ZWo7oAAuwRAAK5YwABVRONQpYjaPUHNgQ",
+            "caption": "Untitled Video",
+            "resolution": "1280p",
+            "size": "2.1 MB",
+            "folder": "",
+            "file_path": "https:\/\/api.telegram.org\/file\/bot7644086513:AAFLFfhtAKAKheYvNPETduljXSwrcV0X9mE\/videos\/file_6.mp4"
+        }
+    ],
+    "folders": [
+        "Naruto"
+    ],
+    "folder_meta": {
+        "Naruto": []
+    }
+}
