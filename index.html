@@ -1,1 +1,252 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flappy Bird</title>
+<style>
+  :root { --sky-start: #87CEEB; --sky-end: #4682B4; --text: #fff; --btn-bg: #000; }
+  body { margin: 0; overflow: hidden; }
+  #gameCanvas { display: block; background: linear-gradient(var(--sky-start), var(--sky-end)); }
+  .game-over {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center; font-family: Arial; color: var(--text); display: none;
+  }
+  .game-over h1 { font-size: 40px; margin: 0; }
+  .game-over p { font-size: 20px; }
+  .game-over button { font-size: 18px; padding: 10px 20px; cursor: pointer; background: var(--btn-bg); color: var(--text); }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+<div class="game-over" id="gameOver">
+  <h1>Game Over</h1>
+  <p>Score: <span id="finalScore">0</span></p>
+  <p>High Score: <span id="highScore">0</span></p>
+  <button onclick="restart()">Restart</button>
+</div>
+
+<!-- Script 1: Initialize -->
+<script>
+var c = document.getElementById('gameCanvas'), ctx = c.getContext('2d'),
+    go = document.getElementById('gameOver'), fs = document.getElementById('finalScore'),
+    hs = document.getElementById('highScore');
+
+c.width = window.innerWidth;
+c.height = 600;
+
+var b = { x: 100, y: 300, vy: 0, s: 20 }, 
+    p = [], s = 0, fc = 0, gr = true, lc = 0,
+    set = { g: 0.25, ps: 2.5, pg: 220, gm: false, im: false, ap: false },
+    jp = -8, dj = -12, pw = 50, gh = 60,
+    h = localStorage.getItem('flappyHighScore') || 0;
+hs.textContent = h;
+</script>
+
+<!-- Script 2: Reset -->
+<script>
+function reset() {
+  b.x = 100; b.y = c.height / 2; b.vy = 0;
+}
+</script>
+
+<!-- Script 3: Spawn Pipes -->
+<script>
+function sp() {
+  p.push({
+    x: c.width + 100,
+    gapY: Math.random() * (c.height - set.pg - gh - 150) + 50,
+    scored: false
+  });
+}
+</script>
+
+<!-- Script 4: Draw -->
+<script>
+function draw() {
+  ctx.clearRect(0, 0, c.width, c.height);
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, b.s, 0, Math.PI * 2);
+  ctx.fill();
+
+  var grad = ctx.createLinearGradient(0, 0, 0, c.height);
+  grad.addColorStop(0, '#228B22');
+  grad.addColorStop(1, '#90EE90');
+  ctx.fillStyle = grad;
+
+  for (var i = p.length - 1; i >= 0; i--) {
+    var pi = p[i];
+    pi.x -= set.ps;
+
+    ctx.fillRect(pi.x, 0, pw, pi.gapY);
+    ctx.fillRect(pi.x, pi.gapY + set.pg, pw, c.height - gh - (pi.gapY + set.pg));
+
+    // Collision Detection
+    if (!set.gm && b.x + b.s > pi.x && b.x - b.s < pi.x + pw) {
+      if (b.y - b.s < pi.gapY || b.y + b.s > pi.gapY + set.pg) {
+        if (Math.abs(b.y - (pi.gapY + set.pg/2)) > 40) { // Small cheat margin
+          end(); return;
+        }
+      }
+    }
+
+    if (!pi.scored && pi.x + pw < b.x) {
+      s++;
+      pi.scored = true;
+    }
+    if (pi.x + pw < 0) p.splice(i, 1);
+  }
+
+  // Ground
+  ctx.fillStyle = '#8B4513';
+  ctx.fillRect(0, c.height - gh, c.width, gh);
+  ctx.fillStyle = '#32CD32';
+  ctx.fillRect(0, c.height - gh, c.width, 7);
+
+  // Text
+  ctx.fillStyle = '#000';
+  ctx.font = '20px Arial';
+  ctx.fillText('Score: ' + s, 10, 30);
+  ctx.fillText('High Score: ' + h, 10, 55);
+
+  if (set.im) { ctx.fillStyle = '#FF0000'; ctx.fillText('Impossible Mode', 10, 80); }
+  if (set.ap) { ctx.fillStyle = '#0000FF'; ctx.fillText('AutoPlay Mode', 10, 105); }
+
+  autoPlay(); // Call AutoPlay inside draw
+  b.vy += set.g;
+  b.y += b.vy;
+
+  if (b.y + b.s > c.height - gh && !set.gm) {
+    b.y = c.height - gh - b.s;
+    end(); return;
+  }
+
+  if (b.y - b.s < 0 && !set.gm) {
+    b.y = b.s;
+    b.vy = 0;
+  }
+
+  fc++;
+  if (fc % (set.im ? 55 : 90) === 0) sp();
+
+  if (gr) requestAnimationFrame(draw);
+}
+</script>
+
+<!-- Script 5: End -->
+<script>
+function end() {
+  gr = false;
+  fs.textContent = s;
+  if (s > h) {
+    h = s;
+    localStorage.setItem('flappyHighScore', h);
+  }
+  hs.textContent = h;
+  go.style.display = 'block';
+}
+</script>
+
+<!-- Script 6: Restart -->
+<script>
+function restart() {
+  reset();
+  p = [];
+  s = 0;
+  fc = 0;
+  gr = true;
+  go.style.display = 'none';
+
+  set.g = 0.25;
+  set.ps = 2.5;
+  set.pg = 220;
+  set.im = false;
+
+  // Load autoplay state from localStorage
+  set.ap = localStorage.getItem('flappy_auto_play') === '1';
+
+  sp();
+  draw();
+}
+</script>
+
+<!-- Script 7: Jump -->
+<script>
+function jump(e) {
+  if (!gr || set.ap) return;
+  var n = Date.now();
+  var dc = e.type === 'click' && n - lc < 250;
+  b.vy = dc ? dj : jp;
+  if (e.type === 'click') lc = n;
+}
+</script>
+
+<!-- Script 8: Event Listeners -->
+<script>
+document.addEventListener('keydown', function(e) { if (e.code === 'Space') jump(e); });
+c.addEventListener('click', jump);
+</script>
+
+<!-- Script 9: Controls -->
+<script>
+window.FlappyControls = {
+  toggleGodMode: function() {
+    set.gm = !set.gm;
+    console.log('God Mode:', set.gm ? 'Enabled' : 'Disabled');
+  },
+  toggleImpossibleMode: function() {
+    set.im = !set.im;
+    if (set.im) {
+      set.ps = 3.5;
+      set.pg = 160;
+      set.g = 0.3;
+    } else {
+      set.ps = 2.5;
+      set.pg = 220;
+      set.g = 0.25;
+    }
+    console.log('Impossible Mode:', set.im ? 'Enabled' : 'Disabled');
+  },
+  toggleAutoPlay: function() {
+    set.ap = !set.ap;
+    localStorage.setItem('flappy_auto_play', set.ap ? '1' : '0');
+    console.log('AutoPlay Mode:', set.ap ? 'Enabled' : 'Disabled');
+  }
+};
+</script>
+
+<!-- Script 10: AutoPlay -->
+<script>
+function autoPlay() {
+  if (!set.ap || !gr) return;
+
+  let nearest = null;
+  for (let i = 0; i < p.length; i++) {
+    if (p[i].x + pw > b.x - b.s) {
+      nearest = p[i];
+      break;
+    }
+  }
+
+  if (nearest) {
+    let target = nearest.gapY + set.pg / 2;
+    if (b.y > target + 10) b.vy = jp;
+    if (b.y < target - 40) b.vy += 0.5;
+  } else if (b.y + b.s > c.height - gh - 100) {
+    b.vy = jp;
+  }
+}
+</script>
+
+<!-- Script 11: Start -->
+<script>
+set.ap = localStorage.getItem('flappy_auto_play') === '1';
+sp();
+draw();
+</script>
+</body>
+  </html>
