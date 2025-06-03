@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Image Compressor + ImgBB Uploader</title>
+  <title>ImgCompressApp</title>
   <!-- Bootstrap CSS -->
   <link
     href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
@@ -19,30 +19,40 @@
     .hidden-section {
       display: none;
     }
-    /* Drag-and-drop zone styles */
+
+    /* Drag-&-drop zone */
     #drop-zone {
-      border: 2px dashed #6c757d;
-      border-radius: 0.25rem;
+      position: relative;
+      border: 2px dashed #0d6efd;       /* Bootstrap primary color */
+      border-radius: 0.375rem;          /* 6px */
       padding: 2rem;
       text-align: center;
-      color: #6c757d;
+      color: #0d6efd;
+      background-color: #f8f9fa;        /* light gray */
       transition: background-color 0.2s, border-color 0.2s;
     }
     #drop-zone.hover {
-      background-color: #f8f9fa;
-      border-color: #495057;
+      background-color: #e2e6ea;        /* slightly darker on hover */
+      border-color: #0b5ed7;            /* darker primary */
     }
+    /* Make the file input cover the entire zone (but invisible) */
     #drop-zone input[type="file"] {
-      display: none;
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
     }
     #drop-zone p {
       margin: 0;
+      user-select: none;
     }
   </style>
 </head>
 <body>
   <!-- NAVBAR -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
     <div class="container-fluid">
       <a class="navbar-brand">ImgCompressApp</a>
       <button
@@ -56,7 +66,7 @@
       >
         <span class="navbar-toggler-icon"></span>
       </button>
-  
+
       <div class="collapse navbar-collapse" id="navbarContent">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0" id="menu-items">
           <li class="nav-item">
@@ -81,8 +91,8 @@
       </div>
     </div>
   </nav>
-  
-  <!-- MAIN CONTAINER -->
+
+  <!-- MAIN -->
   <main class="container">
     <!-- HOME -->
     <section id="home-section">
@@ -95,13 +105,13 @@
         </div>
       </div>
     </section>
-  
+
     <!-- LOGIN -->
     <section id="login-section" class="hidden-section">
       <div class="row justify-content-center">
         <div class="col-md-6">
           <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
+            <div class="card-header bg-dark text-white">
               <h5 class="mb-0">Login</h5>
             </div>
             <div class="card-body">
@@ -124,7 +134,7 @@
                     required
                   />
                 </div>
-                <button type="submit" class="btn btn-primary w-100">Login</button>
+                <button type="submit" class="btn btn-dark w-100">Login</button>
                 <div id="login-error" class="text-danger mt-2" style="display: none;">
                   Invalid username or password.
                 </div>
@@ -134,13 +144,13 @@
         </div>
       </div>
     </section>
-  
+
     <!-- SIGNUP -->
     <section id="signup-section" class="hidden-section">
       <div class="row justify-content-center">
         <div class="col-md-6">
           <div class="card shadow-sm">
-            <div class="card-header bg-success text-white">
+            <div class="card-header bg-warning text-dark">
               <h5 class="mb-0">Sign Up</h5>
             </div>
             <div class="card-body">
@@ -174,9 +184,9 @@
                     required
                   />
                 </div>
-                <button type="submit" class="btn btn-success w-100">Sign Up</button>
+                <button type="submit" class="btn btn-warning w-100">Sign Up</button>
                 <div id="signup-error" class="text-danger mt-2" style="display: none;">
-                  <!-- Error messages injected here -->
+                  <!-- Error messages here -->
                 </div>
               </form>
             </div>
@@ -184,27 +194,26 @@
         </div>
       </div>
     </section>
-  
+
     <!-- UPLOAD (always visible) -->
     <section id="upload-section" class="mt-4">
       <div class="row justify-content-center">
         <div class="col-md-8">
           <div class="card shadow-sm">
-            <div class="card-header bg-info text-white">
-              <h5 class="mb-0">Upload & Compress Image</h5>
+            <div class="card-header bg-secondary text-white">
+              <h5 class="mb-0">Upload &amp; Compress Image</h5>
             </div>
             <div class="card-body">
-  
-              <!-- Drag-and-Drop Zone -->
+              <!-- Drag-&-Drop Zone -->
               <div id="drop-zone">
-                <p>Drag & Drop your image here<br />or<br />Click to select (PNG/JPG)</p>
+                <p>Drag &amp; Drop an image here<br/>or<br/>Tap to select (PNG/JPG)</p>
                 <input
                   type="file"
                   id="image-file"
                   accept="image/png, image/jpeg"
                 />
               </div>
-  
+
               <div id="compression-options" class="mb-3 mt-3">
                 <label class="form-label">Output Format</label>
                 <div class="form-check">
@@ -245,11 +254,11 @@
                   </label>
                 </div>
               </div>
-  
-              <button id="compress-upload-btn" class="btn btn-info w-100">
-                Compress & Upload
+
+              <button id="compress-upload-btn" class="btn btn-secondary w-100">
+                Compress &amp; Upload
               </button>
-  
+
               <div id="upload-status" class="mt-4" style="display: none;">
                 <p><strong>Original size:</strong> <span id="orig-size"></span></p>
                 <p><strong>Compressed size:</strong> <span id="comp-size"></span></p>
@@ -258,19 +267,18 @@
                   <a href="#" id="imgbb-link" target="_blank">—</a>
                 </p>
               </div>
-  
             </div>
           </div>
         </div>
       </div>
     </section>
-  
-    <!-- MY FILES (visible only when logged in) -->
+
+    <!-- MY FILES (only after login) -->
     <section id="files-section" class="hidden-section mt-4">
       <div class="row justify-content-center">
         <div class="col-md-10">
           <div class="card shadow-sm">
-            <div class="card-header bg-warning text-dark">
+            <div class="card-header bg-dark text-white">
               <h5 class="mb-0">My Uploaded Files</h5>
             </div>
             <div class="card-body">
@@ -285,7 +293,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <!-- Populated via JS -->
+                  <!-- Filled by JS -->
                 </tbody>
               </table>
               <div id="no-files-msg" class="text-muted" style="display: none;">
@@ -297,13 +305,12 @@
       </div>
     </section>
   </main>
-  
+
   <!-- Squoosh (ESM) -->
   <script type="module">
     import { ImagePool } from "https://cdn.jsdelivr.net/npm/@squoosh/lib@0.7.2";
-  
-    // ————————————  CONFIG  ————————————
-    // We'll load this from imgbb_api.txt at runtime
+
+    // ————————— CONFIG —————————
     let IMGBB_API_KEY = null;
     fetch("imgbb_api.txt")
       .then((res) => res.text())
@@ -314,15 +321,15 @@
         console.error("Failed to load ImgBB API key:", err);
         alert("Error: could not load ImgBB API key. Make sure imgbb_api.txt is present.");
       });
-  
-    // Seed users (only if localStorage is empty)
+
+    // Seed users only if empty
     const seedUsers = [
       { username: "alice", password: "alice123" },
-      { username: "bob", password: "bob123" },
+      { username: "bob",   password: "bob123" }
     ];
-    // ————————————  STATE  ————————————
+
     let currentUser = null;
-  
+
     function initStorage() {
       if (!localStorage.getItem("users")) {
         localStorage.setItem("users", JSON.stringify(seedUsers));
@@ -343,28 +350,26 @@
     function saveImages(arr) {
       localStorage.setItem("images", JSON.stringify(arr));
     }
-  
-    // ————————————  NAVIGATION / VIEW  ————————————
+
+    // ————— NAVIGATION / VIEWS —————
     const sections = {
       "home-section": document.getElementById("home-section"),
       "login-section": document.getElementById("login-section"),
       "signup-section": document.getElementById("signup-section"),
-      // upload-section is always visible, so we don't hide it globally
-      "files-section": document.getElementById("files-section"),
+      // upload-section always visible
+      "files-section": document.getElementById("files-section")
     };
     const menuLinks = document.querySelectorAll(".nav-link[data-target]");
-    const loginMenuItem = document.getElementById("menu-login");
+    const loginMenuItem  = document.getElementById("menu-login");
     const signupMenuItem = document.getElementById("menu-signup");
-    const filesMenuItem = document.getElementById("menu-files");
+    const filesMenuItem  = document.getElementById("menu-files");
     const logoutMenuItem = document.getElementById("menu-logout");
-  
+
     function showSection(id) {
-      // Hide all controllable sections first
       Object.values(sections).forEach((sec) => (sec.style.display = "none"));
-      // Then show the requested one
-      sections[id].style.display = "block";
+      if (sections[id]) sections[id].style.display = "block";
     }
-  
+
     menuLinks.forEach((link) => {
       link.addEventListener("click", () => {
         const target = link.getAttribute("data-target");
@@ -381,7 +386,7 @@
         bsCollapse.hide();
       });
     });
-  
+
     logoutMenuItem.addEventListener("click", () => {
       doLogout();
       const bsCollapse = new bootstrap.Collapse(
@@ -390,17 +395,17 @@
       );
       bsCollapse.hide();
     });
-  
-    // ————————————  AUTH: SIGNUP ————————————
-    const signupForm = document.getElementById("signup-form");
+
+    // ————— SIGNUP —————
+    const signupForm  = document.getElementById("signup-form");
     const signupError = document.getElementById("signup-error");
     signupForm.addEventListener("submit", (e) => {
       e.preventDefault();
       const uname = document.getElementById("signup-username").value.trim();
-      const pwd = document.getElementById("signup-password").value;
-      const pwd2 = document.getElementById("signup-password-confirm").value;
+      const pwd   = document.getElementById("signup-password").value;
+      const pwd2  = document.getElementById("signup-password-confirm").value;
       signupError.style.display = "none";
-  
+
       if (pwd !== pwd2) {
         signupError.textContent = "Passwords do not match.";
         signupError.style.display = "block";
@@ -418,16 +423,16 @@
       signupForm.reset();
       showSection("login-section");
     });
-  
-    // ————————————  AUTH: LOGIN ————————————
-    const loginForm = document.getElementById("login-form");
+
+    // ————— LOGIN —————
+    const loginForm  = document.getElementById("login-form");
     const loginError = document.getElementById("login-error");
     loginForm.addEventListener("submit", (e) => {
       e.preventDefault();
       const uname = document.getElementById("login-username").value.trim();
-      const pwd = document.getElementById("login-password").value;
+      const pwd   = document.getElementById("login-password").value;
       loginError.style.display = "none";
-  
+
       const users = getUsers();
       const found = users.find((u) => u.username === uname && u.password === pwd);
       if (!found) {
@@ -438,7 +443,7 @@
       loginForm.reset();
       postLoginUI();
     });
-  
+
     function postLoginUI() {
       loginMenuItem.classList.add("hidden-section");
       signupMenuItem.classList.add("hidden-section");
@@ -447,8 +452,8 @@
       showSection("upload-section");
       populateFilesTable();
     }
-  
-    // ————————————  LOGOUT ————————————
+
+    // ————— LOGOUT —————
     function doLogout() {
       currentUser = null;
       loginMenuItem.classList.remove("hidden-section");
@@ -457,22 +462,21 @@
       logoutMenuItem.classList.add("hidden-section");
       showSection("home-section");
     }
-  
-    // ————————————  DRAG-&-DROP + UPLOAD ————————————
-    const dropZone = document.getElementById("drop-zone");
-    const imageInput = document.getElementById("image-file");
-    const compressBtn = document.getElementById("compress-upload-btn");
-    const uploadStatus = document.getElementById("upload-status");
-    const origSizeEl = document.getElementById("orig-size");
-    const compSizeEl = document.getElementById("comp-size");
-    const imgbbLinkEl = document.getElementById("imgbb-link");
-  
-    // Highlight on drag over
+
+    // ————— DRAG-&-DROP + UPLOAD —————
+    const dropZone       = document.getElementById("drop-zone");
+    const imageInput     = document.getElementById("image-file");
+    const compressBtn    = document.getElementById("compress-upload-btn");
+    const uploadStatus   = document.getElementById("upload-status");
+    const origSizeEl     = document.getElementById("orig-size");
+    const compSizeEl     = document.getElementById("comp-size");
+    const imgbbLinkEl    = document.getElementById("imgbb-link");
+
     dropZone.addEventListener("dragover", (e) => {
       e.preventDefault();
       dropZone.classList.add("hover");
     });
-    dropZone.addEventListener("dragleave", (e) => {
+    dropZone.addEventListener("dragleave", () => {
       dropZone.classList.remove("hover");
     });
     dropZone.addEventListener("drop", (e) => {
@@ -482,34 +486,27 @@
         imageInput.files = e.dataTransfer.files;
       }
     });
-    // Click → open file picker
-    dropZone.addEventListener("click", () => {
-      imageInput.click();
-    });
-    // If user selects via file picker, we can show the file name or just leave it
-    imageInput.addEventListener("change", () => {
-      // (no special UI needed; users know it’s selected because they clicked/dragged)
-    });
-  
+    // The <input> itself is covering the drop-zone, so tapping anywhere triggers file-picker.
+
     compressBtn.addEventListener("click", async () => {
       if (!IMGBB_API_KEY) {
-        alert("ImgBB API key is not loaded yet. Please try again in a moment.");
+        alert("ImgBB API key not loaded yet. Please try again in a moment.");
         return;
       }
       const files = imageInput.files;
       if (!files || files.length === 0) {
-        alert("Please drag & drop or select an image file first.");
+        alert("Please drag & drop or tap to select an image file first.");
         return;
       }
       const file = files[0];
       const format = document.querySelector(
         'input[name="formatRadios"]:checked'
       ).value;
-  
+
       // Show original size
       const origSizeKB = (file.size / 1024).toFixed(2);
       origSizeEl.textContent = `${origSizeKB} KB`;
-  
+
       // Compress via Squoosh
       const imagePool = new ImagePool();
       const image = imagePool.ingestImage(await file.arrayBuffer());
@@ -530,23 +527,23 @@
       ]);
       const { binary } = await image.encodedWith[0].arrayBuffer();
       await imagePool.close();
-  
+
       const compressedBlob = new Blob([binary], { type: `image/${format}` });
       const compSizeKB = (compressedBlob.size / 1024).toFixed(2);
       compSizeEl.textContent = `${compSizeKB} KB`;
-  
+
       // Convert to Base64
       const base64str = await new Promise((res) => {
         const reader = new FileReader();
         reader.onloadend = () => res(reader.result.split(",")[1]);
         reader.readAsDataURL(compressedBlob);
       });
-  
+
       // Upload to ImgBB
       const formData = new FormData();
       formData.append("key", IMGBB_API_KEY);
       formData.append("image", base64str);
-  
+
       const response = await fetch("https://api.imgbb.com/1/upload", {
         method: "POST",
         body: formData,
@@ -557,7 +554,7 @@
         imgbbLinkEl.href = url;
         imgbbLinkEl.textContent = url;
         uploadStatus.style.display = "block";
-  
+
         // If logged in, store metadata
         if (currentUser) {
           const imgArr = getImages();
@@ -568,7 +565,6 @@
             url: url,
           });
           saveImages(imgArr);
-          // Refresh “My Files” if currently visible
           if (!filesMenuItem.classList.contains("hidden-section")) {
             populateFilesTable();
           }
@@ -576,14 +572,13 @@
       } else {
         alert("Upload to ImgBB failed. Try again.");
       }
-      // Reset file input for next time
       imageInput.value = "";
     });
-  
-    // ————————————  MY FILES TABLE ————————————
+
+    // ————— “MY FILES” TABLE —————
     const filesTableBody = document.querySelector("#files-table tbody");
-    const noFilesMsg = document.getElementById("no-files-msg");
-  
+    const noFilesMsg     = document.getElementById("no-files-msg");
+
     function populateFilesTable() {
       if (!currentUser) return;
       const allImages = getImages().filter(
@@ -609,14 +604,14 @@
         filesTableBody.appendChild(tr);
       });
     }
-  
-    // ————————————  ON LOAD ————————————
+
+    // ————— ON LOAD —————
     window.addEventListener("DOMContentLoaded", () => {
       initStorage();
       showSection("home-section");
     });
   </script>
-  
+
   <!-- Bootstrap JS -->
   <script
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
