@@ -10,7 +10,6 @@
     rel="stylesheet"
   />
   <style>
-    /* Small custom tweaks */
     body {
       padding-top: 4.5rem;
     }
@@ -19,6 +18,25 @@
     }
     .hidden-section {
       display: none;
+    }
+    /* Drag-and-drop zone styles */
+    #drop-zone {
+      border: 2px dashed #6c757d;
+      border-radius: 0.25rem;
+      padding: 2rem;
+      text-align: center;
+      color: #6c757d;
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+    #drop-zone.hover {
+      background-color: #f8f9fa;
+      border-color: #495057;
+    }
+    #drop-zone input[type="file"] {
+      display: none;
+    }
+    #drop-zone p {
+      margin: 0;
     }
   </style>
 </head>
@@ -45,13 +63,13 @@
             <span class="nav-link" data-target="home-section">Home</span>
           </li>
           <li class="nav-item">
+            <span class="nav-link" data-target="upload-section">Upload</span>
+          </li>
+          <li class="nav-item">
             <span class="nav-link" data-target="login-section" id="menu-login">Login</span>
           </li>
           <li class="nav-item">
             <span class="nav-link" data-target="signup-section" id="menu-signup">Sign Up</span>
-          </li>
-          <li class="nav-item">
-            <span class="nav-link hidden-section" data-target="upload-section" id="menu-upload">Upload</span>
           </li>
           <li class="nav-item">
             <span class="nav-link hidden-section" data-target="files-section" id="menu-files">My Files</span>
@@ -72,7 +90,7 @@
         <div class="container-fluid py-5">
           <h1 class="display-5 fw-bold">Welcome to ImgCompressApp</h1>
           <p class="col-md-8 fs-4">
-            Compress your images in the browser and host them on ImgBB, completely free.
+            Compress images in your browser and host them on ImgBB—no signup required.
           </p>
         </div>
       </div>
@@ -167,8 +185,8 @@
       </div>
     </section>
   
-    <!-- UPLOAD (visible only when logged in) -->
-    <section id="upload-section" class="hidden-section">
+    <!-- UPLOAD (always visible) -->
+    <section id="upload-section" class="mt-4">
       <div class="row justify-content-center">
         <div class="col-md-8">
           <div class="card shadow-sm">
@@ -176,65 +194,71 @@
               <h5 class="mb-0">Upload & Compress Image</h5>
             </div>
             <div class="card-body">
-              <form id="upload-form">
-                <div class="mb-3">
-                  <label for="image-file" class="form-label">Select Image (PNG/JPG)</label>
+  
+              <!-- Drag-and-Drop Zone -->
+              <div id="drop-zone">
+                <p>Drag & Drop your image here<br />or<br />Click to select (PNG/JPG)</p>
+                <input
+                  type="file"
+                  id="image-file"
+                  accept="image/png, image/jpeg"
+                />
+              </div>
+  
+              <div id="compression-options" class="mb-3 mt-3">
+                <label class="form-label">Output Format</label>
+                <div class="form-check">
                   <input
-                    class="form-control"
-                    type="file"
-                    id="image-file"
-                    accept="image/png, image/jpeg"
-                    required
+                    class="form-check-input"
+                    type="radio"
+                    name="formatRadios"
+                    id="format-webp"
+                    value="webp"
+                    checked
                   />
+                  <label class="form-check-label" for="format-webp">
+                    WebP (recommended)
+                  </label>
                 </div>
-                <div id="compression-options" class="mb-3">
-                  <label class="form-label">Output Format</label>
-                  <div class="form-check">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      name="formatRadios"
-                      id="format-webp"
-                      value="webp"
-                      checked
-                    />
-                    <label class="form-check-label" for="format-webp">
-                      WebP (recommended)
-                    </label>
-                  </div>
-                  <div class="form-check">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      name="formatRadios"
-                      id="format-jpeg"
-                      value="jpeg"
-                    />
-                    <label class="form-check-label" for="format-jpeg">
-                      JPEG
-                    </label>
-                  </div>
-                  <div class="form-check">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      name="formatRadios"
-                      id="format-png"
-                      value="png"
-                    />
-                    <label class="form-check-label" for="format-png">
-                      PNG
-                    </label>
-                  </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="formatRadios"
+                    id="format-jpeg"
+                    value="jpeg"
+                  />
+                  <label class="form-check-label" for="format-jpeg">
+                    JPEG
+                  </label>
                 </div>
-                <button type="submit" class="btn btn-info w-100">Compress & Upload</button>
-              </form>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="formatRadios"
+                    id="format-png"
+                    value="png"
+                  />
+                  <label class="form-check-label" for="format-png">
+                    PNG
+                  </label>
+                </div>
+              </div>
+  
+              <button id="compress-upload-btn" class="btn btn-info w-100">
+                Compress & Upload
+              </button>
   
               <div id="upload-status" class="mt-4" style="display: none;">
                 <p><strong>Original size:</strong> <span id="orig-size"></span></p>
                 <p><strong>Compressed size:</strong> <span id="comp-size"></span></p>
-                <p><strong>ImgBB Link:</strong> <a href="#" id="imgbb-link" target="_blank">—</a></p>
+                <p>
+                  <strong>ImgBB Link:</strong>
+                  <a href="#" id="imgbb-link" target="_blank">—</a>
+                </p>
               </div>
+  
             </div>
           </div>
         </div>
@@ -242,7 +266,7 @@
     </section>
   
     <!-- MY FILES (visible only when logged in) -->
-    <section id="files-section" class="hidden-section">
+    <section id="files-section" class="hidden-section mt-4">
       <div class="row justify-content-center">
         <div class="col-md-10">
           <div class="card shadow-sm">
@@ -279,22 +303,26 @@
     import { ImagePool } from "https://cdn.jsdelivr.net/npm/@squoosh/lib@0.7.2";
   
     // ————————————  CONFIG  ————————————
-    const IMGBB_API_KEY = "e6695fe8544f576de5499c876dc11d7b"; // ← Replace with your ImgBB API key
+    // We'll load this from imgbb_api.txt at runtime
+    let IMGBB_API_KEY = null;
+    fetch("imgbb_api.txt")
+      .then((res) => res.text())
+      .then((text) => {
+        IMGBB_API_KEY = text.trim();
+      })
+      .catch((err) => {
+        console.error("Failed to load ImgBB API key:", err);
+        alert("Error: could not load ImgBB API key. Make sure imgbb_api.txt is present.");
+      });
   
     // Seed users (only if localStorage is empty)
     const seedUsers = [
       { username: "alice", password: "alice123" },
       { username: "bob", password: "bob123" },
     ];
-    // Structure: { username: string, password: string }
-  
     // ————————————  STATE  ————————————
-    let currentUser = null; // holds { username, password }
-    // We’ll store arrays of users and images in localStorage as JSON:
-    //   localStorage["users"] = JSON.stringify([{ username, password }, ...])
-    //   localStorage["images"] = JSON.stringify([{ username, format, sizeKB, url }, ...])
+    let currentUser = null;
   
-    // ————————————  INIT  ————————————
     function initStorage() {
       if (!localStorage.getItem("users")) {
         localStorage.setItem("users", JSON.stringify(seedUsers));
@@ -303,14 +331,12 @@
         localStorage.setItem("images", JSON.stringify([]));
       }
     }
-  
     function getUsers() {
       return JSON.parse(localStorage.getItem("users")) || [];
     }
     function saveUsers(arr) {
       localStorage.setItem("users", JSON.stringify(arr));
     }
-  
     function getImages() {
       return JSON.parse(localStorage.getItem("images")) || [];
     }
@@ -323,18 +349,19 @@
       "home-section": document.getElementById("home-section"),
       "login-section": document.getElementById("login-section"),
       "signup-section": document.getElementById("signup-section"),
-      "upload-section": document.getElementById("upload-section"),
+      // upload-section is always visible, so we don't hide it globally
       "files-section": document.getElementById("files-section"),
     };
     const menuLinks = document.querySelectorAll(".nav-link[data-target]");
     const loginMenuItem = document.getElementById("menu-login");
     const signupMenuItem = document.getElementById("menu-signup");
-    const uploadMenuItem = document.getElementById("menu-upload");
     const filesMenuItem = document.getElementById("menu-files");
     const logoutMenuItem = document.getElementById("menu-logout");
   
     function showSection(id) {
+      // Hide all controllable sections first
       Object.values(sections).forEach((sec) => (sec.style.display = "none"));
+      // Then show the requested one
       sections[id].style.display = "block";
     }
   
@@ -346,22 +373,21 @@
         } else {
           showSection(target);
         }
-      });
-    });
-  
-    // On small screens, if a menu link is clicked, collapse the navbar
-    const bsCollapse = new bootstrap.Collapse(
-      document.getElementById("navbarContent"),
-      { toggle: false }
-    );
-    menuLinks.forEach((link) => {
-      link.addEventListener("click", () => {
+        // Collapse navbar on mobile
+        const bsCollapse = new bootstrap.Collapse(
+          document.getElementById("navbarContent"),
+          { toggle: false }
+        );
         bsCollapse.hide();
       });
     });
   
     logoutMenuItem.addEventListener("click", () => {
       doLogout();
+      const bsCollapse = new bootstrap.Collapse(
+        document.getElementById("navbarContent"),
+        { toggle: false }
+      );
       bsCollapse.hide();
     });
   
@@ -390,7 +416,6 @@
       saveUsers(users);
       alert("Signup successful! You can now log in.");
       signupForm.reset();
-      // After signup, redirect to Login
       showSection("login-section");
     });
   
@@ -409,20 +434,16 @@
         loginError.style.display = "block";
         return;
       }
-      // Successful login
       currentUser = found;
       loginForm.reset();
       postLoginUI();
     });
   
     function postLoginUI() {
-      // Show/Hide menu items
       loginMenuItem.classList.add("hidden-section");
       signupMenuItem.classList.add("hidden-section");
-      uploadMenuItem.classList.remove("hidden-section");
       filesMenuItem.classList.remove("hidden-section");
       logoutMenuItem.classList.remove("hidden-section");
-      // Go to upload page by default
       showSection("upload-section");
       populateFilesTable();
     }
@@ -432,41 +453,74 @@
       currentUser = null;
       loginMenuItem.classList.remove("hidden-section");
       signupMenuItem.classList.remove("hidden-section");
-      uploadMenuItem.classList.add("hidden-section");
       filesMenuItem.classList.add("hidden-section");
       logoutMenuItem.classList.add("hidden-section");
       showSection("home-section");
     }
   
-    // ————————————  UPLOAD & COMPRESS ————————————
-    const uploadForm = document.getElementById("upload-form");
+    // ————————————  DRAG-&-DROP + UPLOAD ————————————
+    const dropZone = document.getElementById("drop-zone");
     const imageInput = document.getElementById("image-file");
+    const compressBtn = document.getElementById("compress-upload-btn");
     const uploadStatus = document.getElementById("upload-status");
     const origSizeEl = document.getElementById("orig-size");
     const compSizeEl = document.getElementById("comp-size");
     const imgbbLinkEl = document.getElementById("imgbb-link");
   
-    uploadForm.addEventListener("submit", async (e) => {
+    // Highlight on drag over
+    dropZone.addEventListener("dragover", (e) => {
       e.preventDefault();
-      if (!currentUser) return;
-      const file = imageInput.files[0];
-      if (!file) return;
+      dropZone.classList.add("hover");
+    });
+    dropZone.addEventListener("dragleave", (e) => {
+      dropZone.classList.remove("hover");
+    });
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("hover");
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        imageInput.files = e.dataTransfer.files;
+      }
+    });
+    // Click → open file picker
+    dropZone.addEventListener("click", () => {
+      imageInput.click();
+    });
+    // If user selects via file picker, we can show the file name or just leave it
+    imageInput.addEventListener("change", () => {
+      // (no special UI needed; users know it’s selected because they clicked/dragged)
+    });
   
-      uploadStatus.style.display = "none";
+    compressBtn.addEventListener("click", async () => {
+      if (!IMGBB_API_KEY) {
+        alert("ImgBB API key is not loaded yet. Please try again in a moment.");
+        return;
+      }
+      const files = imageInput.files;
+      if (!files || files.length === 0) {
+        alert("Please drag & drop or select an image file first.");
+        return;
+      }
+      const file = files[0];
       const format = document.querySelector(
         'input[name="formatRadios"]:checked'
       ).value;
   
-      // 1. Show original size
+      // Show original size
       const origSizeKB = (file.size / 1024).toFixed(2);
       origSizeEl.textContent = `${origSizeKB} KB`;
   
-      // 2. Compress using Squoosh
+      // Compress via Squoosh
       const imagePool = new ImagePool();
       const image = imagePool.ingestImage(await file.arrayBuffer());
       await image.encode([
         {
-          preset: format === "webp" ? "webp" : format === "jpeg" ? "mozjpeg" : "oxipng",
+          preset:
+            format === "webp"
+              ? "webp"
+              : format === "jpeg"
+              ? "mozjpeg"
+              : "oxipng",
           ...(format === "jpeg"
             ? { quality: 75 }
             : format === "webp"
@@ -481,14 +535,14 @@
       const compSizeKB = (compressedBlob.size / 1024).toFixed(2);
       compSizeEl.textContent = `${compSizeKB} KB`;
   
-      // 3. Convert Blob → Base64
+      // Convert to Base64
       const base64str = await new Promise((res) => {
         const reader = new FileReader();
         reader.onloadend = () => res(reader.result.split(",")[1]);
         reader.readAsDataURL(compressedBlob);
       });
   
-      // 4. Send to ImgBB
+      // Upload to ImgBB
       const formData = new FormData();
       formData.append("key", IMGBB_API_KEY);
       formData.append("image", base64str);
@@ -504,24 +558,26 @@
         imgbbLinkEl.textContent = url;
         uploadStatus.style.display = "block";
   
-        // 5. Store metadata in localStorage (“images” JSON)
-        const imgArr = getImages();
-        imgArr.push({
-          username: currentUser.username,
-          format: format,
-          sizeKB: compSizeKB,
-          url: url,
-        });
-        saveImages(imgArr);
-  
-        // Refresh “My Files” table if visible
-        if (!filesMenuItem.classList.contains("hidden-section")) {
-          populateFilesTable();
+        // If logged in, store metadata
+        if (currentUser) {
+          const imgArr = getImages();
+          imgArr.push({
+            username: currentUser.username,
+            format: format,
+            sizeKB: compSizeKB,
+            url: url,
+          });
+          saveImages(imgArr);
+          // Refresh “My Files” if currently visible
+          if (!filesMenuItem.classList.contains("hidden-section")) {
+            populateFilesTable();
+          }
         }
       } else {
         alert("Upload to ImgBB failed. Try again.");
       }
-      uploadForm.reset();
+      // Reset file input for next time
+      imageInput.value = "";
     });
   
     // ————————————  MY FILES TABLE ————————————
