@@ -49,6 +49,10 @@
             color: white;
             text-align: center;
         }
+        .alert-danger {
+            max-width: 600px;
+            margin: 10px auto;
+        }
     </style>
 </head>
 <body>
@@ -95,7 +99,7 @@
 
     <!-- Footer -->
     <footer class="footer">
-        <p>&copy; 2025 Image Compressor. All rights reserved.</p>
+        <p>© 2025 Image Compressor. All rights reserved.</p>
     </footer>
 
     <!-- Bootstrap JS and Dependencies -->
@@ -110,7 +114,8 @@
             document.body.classList.add('logged-in');
         }
 
-        const apiKey = 'api_production_e3f59126708d4cef0eae561eaa9c01f56c1cf0195a5bafa59aa318c5a88aad16.6840290d4f4a6dcc14de4f9a.6840294e7f27f063364ed6fa';
+        // Replace with your valid ImgBB API key
+        const apiKey = 'YOUR_IMGBB_API_KEY'; // Get from https://imgbb.com/api
         const imageInput = document.getElementById('imageInput');
         const compressBtn = document.getElementById('compressBtn');
         const statusDiv = document.getElementById('status');
@@ -159,10 +164,10 @@
                         console.log('Image saved to library (placeholder):', imageUrl);
                     }
                 } else {
-                    statusDiv.innerHTML = '<div class="alert alert-danger">Upload failed: ' + data.error.message + '</div>';
+                    statusDiv.innerHTML = `<div class="alert alert-danger">Upload failed: ${data.error.message || 'Unknown error. Please check your API key.'}</div>`;
                 }
             } catch (error) {
-                statusDiv.innerHTML = '<div class="alert alert-danger">Error: ' + error.message + '</div>';
+                statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}. Please ensure the API key is valid and try again.</div>`;
             }
         });
     </script>
