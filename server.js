@@ -25,7 +25,7 @@ async function getDefaultApiKey() {
         return apiKey.trim();
     } catch (error) {
         console.warn('Failed to read imgbb_api.txt:', error.message);
-        return process.env.IMGBB_API_KEY || 'YOUR_IMGBB_API_KEY';
+        return process.env.IMGBB_API_KEY || 'e3f59126708d4cef0eae561eaa9c01f5';
     }
 }
 
