@@ -6,7 +6,7 @@
     <title>Image Compressor & Uploader</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Custom CSS for professional look -->
+    <!-- Custom CSS -->
     <style>
         body {
             background-color: #f8f9fa;
@@ -37,7 +37,7 @@
             border-radius: 5px;
         }
         .library-btn {
-            display: none; /* Hidden for non-logged-in users */
+            display: none;
         }
         .logged-in .library-btn {
             display: inline-block;
@@ -60,7 +60,7 @@
     <div class="hero-section">
         <div class="container">
             <h1 class="display-4">Image Compressor & Uploader</h1>
-            <p class="lead">Compress your images and upload them to ImgBB for easy sharing.</p>
+            <p class="lead">Compress images in multiple formats and share via ImgBB.</p>
             <a href="#upload" class="btn btn-light btn-lg mt-3">Get Started</a>
         </div>
     </div>
@@ -68,10 +68,21 @@
     <!-- Upload Section -->
     <div class="container upload-container" id="upload">
         <h2 class="text-center mb-4">Upload & Compress Image</h2>
-        <div class="mb-3">
-            <input type="file" id="imageInput" class="form-control" accept="image/*" />
-        </div>
-        <button id="compressBtn" class="btn btn-primary w-100">Compress & Upload</button>
+        <form id="uploadForm">
+            <div class="mb-3">
+                <label for="imageInput" class="form-label">Select Image</label>
+                <input type="file" id="imageInput" class="form-control" accept="image/jpeg,image/png,image/webp" />
+            </div>
+            <div class="mb-3">
+                <label for="formatSelect" class="form-label">Output Format</label>
+                <select id="formatSelect" class="form-select">
+                    <option value="jpeg">JPEG</option>
+                    <option value="png">PNG</option>
+                    <option value="webp">WebP</option>
+                </select>
+            </div>
+            <button type="submit" id="compressBtn" class="btn btn-primary w-100">Compress & Upload</button>
+        </form>
         <div class="text-center mt-3">
             <button class="btn btn-secondary library-btn" data-bs-toggle="modal" data-bs-target="#libraryModal">View Image Library</button>
         </div>
@@ -79,7 +90,7 @@
         <div id="result" class="result-section"></div>
     </div>
 
-    <!-- Image Library Modal (Placeholder for Logged-in Users) -->
+    <!-- Image Library Modal (Placeholder) -->
     <div class="modal fade" id="libraryModal" tabindex="-1" aria-labelledby="libraryModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -102,72 +113,60 @@
         <p>© 2025 Image Compressor. All rights reserved.</p>
     </footer>
 
-    <!-- Bootstrap JS and Dependencies -->
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- browser-image-compression -->
-    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
-    <!-- JavaScript for Compression and Upload -->
+    <!-- Client-side JavaScript -->
     <script>
-        // Simulated login state (replace with actual login check later)
-        const isLoggedIn = false; // Set to true for testing logged-in state
+        // Simulated login state
+        const isLoggedIn = false; // Set to true for testing
         if (isLoggedIn) {
             document.body.classList.add('logged-in');
         }
 
-        // Replace with your valid ImgBB API key
-        const apiKey = 'YOUR_IMGBB_API_KEY'; // Get from https://imgbb.com/api
+        const uploadForm = document.getElementById('uploadForm');
         const imageInput = document.getElementById('imageInput');
-        const compressBtn = document.getElementById('compressBtn');
+        const formatSelect = document.getElementById('formatSelect');
         const statusDiv = document.getElementById('status');
         const resultDiv = document.getElementById('result');
 
-        compressBtn.addEventListener('click', async () => {
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
             const file = imageInput.files[0];
+            const format = formatSelect.value;
+
             if (!file) {
                 statusDiv.innerHTML = '<div class="alert alert-danger">Please select an image.</div>';
                 return;
             }
 
-            statusDiv.innerHTML = '<div class="alert alert-info">Compressing image...</div>';
+            statusDiv.innerHTML = '<div class="alert alert-info">Processing image...</div>';
 
             try {
-                // Compress image
-                const options = {
-                    maxSizeMB: 1, // Target size: 1MB
-                    maxWidthOrHeight: 1920, // Max resolution
-                    useWebWorker: true
-                };
-                const compressedFile = await imageCompression(file, options);
-
-                statusDiv.innerHTML = '<div class="alert alert-info">Uploading to ImgBB...</div>';
-
-                // Upload to ImgBB
                 const formData = new FormData();
-                formData.append('image', compressedFile);
+                formData.append('image', file);
+                formData.append('format', format);
 
-                const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+                const response = await fetch('/api/compress', {
                     method: 'POST',
                     body: formData
                 });
 
                 const data = await response.json();
-                if (data.success) {
-                    const imageUrl = data.data.url;
+                if (response.ok) {
                     statusDiv.innerHTML = '<div class="alert alert-success">Image uploaded successfully!</div>';
                     resultDiv.innerHTML = `
                         <p><strong>Direct URL:</strong></p>
-                        <p class="url-display">${imageUrl}</p>
-                        <a href="${imageUrl}" target="_blank" class="btn btn-outline-primary mt-2">View Image</a>
+                        <p class="url-display">${data.url}</p>
+                        <a href="${data.url}" target="_blank" class="btn btn-outline-primary mt-2">View Image</a>
                     `;
                     if (isLoggedIn) {
-                        // Stub for saving to image library (to be implemented with login)
-                        console.log('Image saved to library (placeholder):', imageUrl);
+                        console.log('Image saved to library (placeholder):', data.url);
                     }
                 } else {
-                    statusDiv.innerHTML = `<div class="alert alert-danger">Upload failed: ${data.error.message || 'Unknown error. Please check your API key.'}</div>`;
+                    statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${data.error || 'Unknown error. Please check your API key.'}</div>`;
                 }
             } catch (error) {
-                statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}. Please ensure the API key is valid and try again.</div>`;
+                statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}. Please try again.</div>`;
             }
         });
     </script>
