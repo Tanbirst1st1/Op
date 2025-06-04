@@ -11,8 +11,19 @@ const app = express();
 // Multer for handling file uploads
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Serve static files (index.html)
+// Serve static files
 app.use(express.static(__dirname));
+
+// Read API key from imgbb_api.txt or environment variable
+async function getApiKey() {
+    try {
+        const apiKey = await fs.readFile(path.join(__dirname, 'imgbb_api.txt'), 'utf8');
+        return apiKey.trim();
+    } catch (error) {
+        console.warn('Failed to read imgbb_api.txt, falling back to environment variable:', error.message);
+        return process.env.IMGBB_API_KEY || 'YOUR_IMGBB_API_KEY';
+    }
+}
 
 // API route for compression and upload
 app.post('/api/compress', upload.single('image'), async (req, res) => {
@@ -30,10 +41,10 @@ app.post('/api/compress', upload.single('image'), async (req, res) => {
         // Compress image with sharp
         const compressedImage = await sharp(req.file.buffer)
             .toFormat(format, {
-                quality: format === 'jpeg' || format === 'webp' ? 80 : undefined, // Quality for lossy formats
+                quality: format === 'jpeg' || format === 'webp' ? 80 : undefined,
                 progressive: true,
             })
-            .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true }) // Max 1920px
+            .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
             .toBuffer();
 
         // Upload to ImgBB
@@ -43,23 +54,31 @@ app.post('/api/compress', upload.single('image'), async (req, res) => {
             contentType: `image/${format}`,
         });
 
-        const apiKey = 'e6695fe8544f576de5499c876dc11d7b'; // Replace with valid ImgBB API key
+        const apiKey = await getApiKey();
         const response = await axios.post(`https://api.imgbb.com/1/upload?key=${apiKey}`, formData, {
             headers: formData.getHeaders(),
+            validateStatus: status => status < 500,
         });
 
+        // Check if response is JSON
+        const contentType = response.headers['content-type'];
+        if (!contentType || !contentType.includes('application/json')) {
+            console.error('Non-JSON response from ImgBB:', response.data);
+            return res.status(500).json({ error: `Invalid ImgBB response: ${String(response.data).substring(0, 50)}...` });
+        }
+
         if (response.data.success) {
-            // Delete temporary file if any (not used here, but for safety)
             res.json({ url: response.data.data.url });
         } else {
+            console.error('ImgBB error:', response.data);
             res.status(400).json({ error: response.data.error.message || 'ImgBB upload failed' });
         }
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Server error: ' + error.message });
+        console.error('Server error:', error);
+        res.status(500).json({ error: `Server error: ${error.message}` });
     }
 });
 
-// Start server (not used in Vercel, handled by vercel.json)
+// Start server (for local testing)
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`Server running on port ${port}`));
