@@ -8,12 +8,36 @@
         {
             "src": "index.html",
             "use": "@vercel/static"
+        },
+        {
+            "src": "login.html",
+            "use": "@vercel/static"
+        },
+        {
+            "src": "signup.html",
+            "use": "@vercel/static"
+        },
+        {
+            "src": "library.html",
+            "use": "@vercel/static"
         }
     ],
     "routes": [
         {
             "src": "/api/(.*)",
             "dest": "server.js"
+        },
+        {
+            "src": "/login.html",
+            "dest": "login.html"
+        },
+        {
+            "src": "/signup.html",
+            "dest": "signup.html"
+        },
+        {
+            "src": "/library.html",
+            "dest": "library.html"
         },
         {
             "src": "/(.*)",
