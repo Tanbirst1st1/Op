@@ -25,7 +25,7 @@ async function getDefaultApiKey() {
         return apiKey.trim();
     } catch (error) {
         console.warn('Failed to read imgbb_api.txt:', error.message);
-        return process.env.IMGBB_API_KEY || 'e3f59126708d4cef0eae561eaa9c01f5';
+        return process.env.IMGBB_API_KEY || 'YOUR_IMGBB_API_KEY';
     }
 }
 
@@ -35,12 +35,22 @@ async function loadUsers() {
         const data = await fs.readFile(path.join(__dirname, 'users.json'), 'utf8');
         return JSON.parse(data);
     } catch (error) {
-        return [];
+        if (error.code === 'ENOENT') {
+            await fs.writeFile(path.join(__dirname, 'users.json'), '[]');
+            return [];
+        }
+        console.error('Error loading users:', error.message);
+        throw new Error('Failed to load users');
     }
 }
 
 async function saveUsers(users) {
-    await fs.writeFile(path.join(__dirname, 'users.json'), JSON.stringify(users, null, 2));
+    try {
+        await fs.writeFile(path.join(__dirname, 'users.json'), JSON.stringify(users, null, 2));
+    } catch (error) {
+        console.error('Error saving users:', error.message);
+        throw new Error('Failed to save users');
+    }
 }
 
 // Load/save image library
@@ -49,12 +59,22 @@ async function loadImages() {
         const data = await fs.readFile(path.join(__dirname, 'user_images.json'), 'utf8');
         return JSON.parse(data);
     } catch (error) {
-        return {};
+        if (error.code === 'ENOENT') {
+            await fs.writeFile(path.join(__dirname, 'user_images.json'), '{}');
+            return {};
+        }
+        console.error('Error loading images:', error.message);
+        throw new Error('Failed to load images');
     }
 }
 
 async function saveImages(images) {
-    await fs.writeFile(path.join(__dirname, 'user_images.json'), JSON.stringify(images, null, 2));
+    try {
+        await fs.writeFile(path.join(__dirname, 'user_images.json'), JSON.stringify(images, null, 2));
+    } catch (error) {
+        console.error('Error saving images:', error.message);
+        throw new Error('Failed to save images');
+    }
 }
 
 // Middleware to verify JWT
@@ -72,32 +92,46 @@ function authenticateToken(req, res, next) {
 
 // Login endpoint
 app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
-    const users = await loadUsers();
-    const user = users.find(u => u.email === email);
+    try {
+        const { email, password } = req.body;
+        const users = await loadUsers();
+        const user = users.find(u => u.email === email);
 
-    if (!user || !await bcrypt.compare(password, user.password)) {
-        return res.status(401).json({ error: 'Invalid email or password' });
+        if (!user || !await bcrypt.compare(password, user.password)) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        const token = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+        res.json({ token });
+    } catch (error) {
+        console.error('Login error:', error.message);
+        res.status(500).json({ error: 'Server error during login' });
     }
-
-    const token = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token });
 });
 
 // Signup endpoint
 app.post('/api/signup', async (req, res) => {
-    const { email, password, apiKey } = req.body;
-    const users = await loadUsers();
-    if (users.find(u => u.email === email)) {
-        return res.status(400).json({ error: 'Email already exists' });
+    try {
+        const { email, password, apiKey } = req.body;
+        if (!email || !password || !apiKey) {
+            return res.status(400).json({ error: 'Email, password, and API key are required' });
+        }
+
+        const users = await loadUsers();
+        if (users.find(u => u.email === email)) {
+            return res.status(400).json({ error: 'Email already exists' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        users.push({ email, password: hashedPassword, apiKey });
+        await saveUsers(users);
+
+        const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
+        res.json({ token });
+    } catch (error) {
+        console.error('Signup error:', error.message);
+        res.status(500).json({ error: `Server error during signup: ${error.message}` });
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    users.push({ email, password: hashedPassword, apiKey });
-    await saveUsers(users);
-
-    const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token });
 });
 
 // Image compression and upload (ImgBB)
@@ -232,7 +266,7 @@ app.post('/api/compress-imgur', upload.single('image'), async (req, res) => {
         const response = await axios.post('https://api.imgur.com/3/image', formData, {
             headers: {
                 ...formData.getHeaders(),
-                Authorization: `Client-ID ${apiKey}`, // Imgur uses Client-ID
+                Authorization: `Client-ID ${apiKey}`,
             },
             validateStatus: status => status < 500,
         });
@@ -273,20 +307,30 @@ app.post('/api/compress-imgur', upload.single('image'), async (req, res) => {
 
 // Image library endpoint
 app.get('/api/images', authenticateToken, async (req, res) => {
-    const images = await loadImages();
-    res.json({ images: images[req.user.email] || [] });
+    try {
+        const images = await loadImages();
+        res.json({ images: images[req.user.email] || [] });
+    } catch (error) {
+        console.error('Error fetching images:', error.message);
+        res.status(500).json({ error: 'Failed to fetch images' });
+    }
 });
 
 // Delete image from library
 app.delete('/api/images', authenticateToken, async (req, res) => {
-    const { index } = req.body;
-    const images = await loadImages();
-    if (images[req.user.email] && images[req.user.email][index]) {
-        images[req.user.email].splice(index, 1);
-        await saveImages(images);
-        res.json({ success: true });
-    } else {
-        res.status(400).json({ error: 'Image not found' });
+    try {
+        const { index } = req.body;
+        const images = await loadImages();
+        if (images[req.user.email] && images[req.user.email][index]) {
+            images[req.user.email].splice(index, 1);
+            await saveImages(images);
+            res.json({ success: true });
+        } else {
+            res.status(400).json({ error: 'Image not found' });
+        }
+    } catch (error) {
+        console.error('Error deleting image:', error.message);
+        res.status(500).json({ error: 'Failed to delete image' });
     }
 });
 
