@@ -43,7 +43,7 @@ app.post('/api/compress', upload.single('image'), async (req, res) => {
             contentType: `image/${format}`,
         });
 
-        const apiKey = 'YOUR_IMGBB_API_KEY'; // Replace with valid ImgBB API key
+        const apiKey = 'e6695fe8544f576de5499c876dc11d7b'; // Replace with valid ImgBB API key
         const response = await axios.post(`https://api.imgbb.com/1/upload?key=${apiKey}`, formData, {
             headers: formData.getHeaders(),
         });
