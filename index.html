@@ -6,6 +6,8 @@
     <title>Image Compressor & Uploader</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <!-- Custom CSS -->
     <style>
         body {
@@ -112,7 +114,7 @@
         }
         .footer {
             margin-top: 50px;
-            padding: 30px;
+            intermediate: 30px;
             background: #212529;
             color: white;
             text-align: center;
@@ -149,23 +151,29 @@
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top">
         <div class="container">
-            <a class="navbar-brand" href="/">Image Compressor</a>
+            <a class="navbar-brand" href="/"><i class="bi bi-image me-2"></i>Image Compressor</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link active" href="/">Home</a>
+                        <a class="nav-link active" href="/"><i class="bi bi-house me-1"></i>Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#upload">Upload</a>
+                        <a class="nav-link" href="#upload"><i class="bi bi-upload me-1"></i>Upload</a>
                     </li>
                     <li class="nav-item">
-                        <button class="nav-link library-btn" data-bs-toggle="modal" data-bs-target="#libraryModal">Image Library</button>
+                        <a class="nav-link library-btn" href="/library.html"><i class="bi bi-collection me-1"></i>Image Library</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#login">Login/Signup</a>
+                    <li class="nav-item logged-in">
+                        <a class="nav-link" href="#" id="logoutBtn"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+                    </li>
+                    <li class="nav-item not-logged-in">
+                        <a class="nav-link" href="/login.html"><i class="bi bi-box-arrow-in-right me-1"></i>Login</a>
+                    </li>
+                    <li class="nav-item not-logged-in">
+                        <a class="nav-link" href="/signup.html"><i class="bi bi-person-plus me-1"></i>Signup</a>
                     </li>
                 </ul>
             </div>
@@ -176,17 +184,17 @@
     <div class="hero-section">
         <div class="container">
             <h1>Compress & Share Your Images</h1>
-            <p class="lead">Easily compress multiple images in JPEG, PNG, or WebP formats and share them instantly with ImgBB.</p>
-            <a href="#upload" class="btn btn-light btn-lg mt-4">Start Compressing</a>
+            <p class="lead">Easily compress multiple images in JPEG, PNG, or WebP formats and share them instantly with ImgBB or Imgur.</p>
+            <a href="#upload" class="btn btn-light btn-lg mt-4"><i class="bi bi-upload me-2"></i>Start Compressing</a>
         </div>
     </div>
 
     <!-- Upload Section -->
     <div class="container upload-container" id="upload">
-        <h2 class="text-center mb-4">Upload & Compress Images</h2>
+        <h2 class="text-center mb-4"><i class="bi bi-image me-2"></i>Upload & Compress Images</h2>
         <form id="uploadForm">
             <div class="drop-zone mb-3" id="dropZone">
-                <p>Drag & drop images here or click to select (JPEG, PNG, WebP)</p>
+                <p><i class="bi bi-cloud-upload me-2"></i>Drag & drop images here or click to select (JPEG, PNG, WebP)</p>
                 <input type="file" id="imageInput" class="form-control d-none" accept="image/jpeg,image/png,image/webp" multiple />
             </div>
             <div id="imagePreviewContainer" class="image-preview-container"></div>
@@ -198,31 +206,20 @@
                     <option value="webp">WebP</option>
                 </select>
             </div>
-            <button type="submit" id="compressBtn" class="btn btn-primary w-100">Compress & Upload</button>
+            <div class="mb-3">
+                <label for="serviceSelect" class="form-label">Upload Service</label>
+                <select id="serviceSelect" class="form-select">
+                    <option value="imgbb">ImgBB</option>
+                    <option value="imgur">Imgur</option>
+                </select>
+            </div>
+            <button type="submit" id="compressBtn" class="btn btn-primary w-100"><i class="bi bi-arrow-up-circle me-2"></i>Compress & Upload</button>
         </form>
         <div class="text-center mt-3">
-            <button class="btn btn-secondary library-btn" data-bs-toggle="modal" data-bs-target="#libraryModal">View Image Library</button>
+            <a href="/library.html" class="btn btn-secondary library-btn"><i class="bi bi-collection me-2"></i>View Image Library</a>
         </div>
         <div id="status" class="result-section"></div>
         <div id="result" class="result-section"></div>
-    </div>
-
-    <!-- Image Library Modal (Placeholder) -->
-    <div class="modal fade" id="libraryModal" tabindex="-1" aria-labelledby="libraryModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="libraryModalLabel">Image Library</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Image library feature is available for logged-in users. Login system to be implemented later.</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Footer -->
@@ -234,19 +231,26 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Client-side JavaScript -->
     <script>
-        // Simulated login state
-        const isLoggedIn = false; // Set to true for testing
+        // Check login status
+        const token = localStorage.getItem('token');
+        const isLoggedIn = !!token;
         if (isLoggedIn) {
             document.body.classList.add('logged-in');
+            document.body.classList.remove('not-logged-in');
+        } else {
+            document.body.classList.add('not-logged-in');
+            document.body.classList.remove('logged-in');
         }
 
         const uploadForm = document.getElementById('uploadForm');
         const imageInput = document.getElementById('imageInput');
         const dropZone = document.getElementById('dropZone');
         const formatSelect = document.getElementById('formatSelect');
+        const serviceSelect = document.getElementById('serviceSelect');
         const imagePreviewContainer = document.getElementById('imagePreviewContainer');
         const statusDiv = document.getElementById('status');
         const resultDiv = document.getElementById('result');
+        const logoutBtn = document.getElementById('logoutBtn');
         let selectedFiles = [];
 
         // Drag-and-drop and click handling
@@ -317,9 +321,11 @@
                     const formData = new FormData();
                     formData.append('image', file);
                     formData.append('format', formatSelect.value);
+                    formData.append('service', serviceSelect.value);
 
-                    const response = await fetch('/api/compress', {
+                    const response = await fetch(`/api/compress${serviceSelect.value === 'imgur' ? '-imgur' : ''}`, {
                         method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token || ''}` },
                         body: formData
                     });
 
@@ -333,7 +339,7 @@
                     if (response.ok) {
                         const resultItem = document.createElement('div');
                         resultItem.innerHTML = `
-                            <p><strong>${file.name} URL:</strong></p>
+                            <p><strong>${file.name} URL (${serviceSelect.value}):</strong></p>
                             <p class="url-display">${data.url}</p>
                             <a href="${data.url}" target="_blank" class="btn btn-outline-primary mt-2 mb-3">View Image</a>
                         `;
@@ -351,6 +357,11 @@
             } catch (error) {
                 statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}. Please ensure the API key is valid and try again.</div>`;
             }
+        });
+
+        logoutBtn?.addEventListener('click', () => {
+            localStorage.removeItem('token');
+            window.location.href = '/login.html';
         });
     </script>
 </body>
