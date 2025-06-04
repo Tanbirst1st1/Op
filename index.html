@@ -51,12 +51,47 @@
             border-radius: 15px;
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
         }
-        .image-preview {
-            max-width: 100%;
-            max-height: 200px;
-            margin: 15px auto;
-            display: none;
+        .drop-zone {
+            border: 2px dashed #6c757d;
+            padding: 20px;
+            text-align: center;
+            background: #f1f3f5;
             border-radius: 10px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .drop-zone.dragover {
+            background: #e1e7ff;
+            border-color: #5a67d8;
+        }
+        .image-preview-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .image-preview {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .image-preview img {
+            max-width: 100%;
+            height: 100px;
+            object-fit: cover;
+        }
+        .image-preview .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: red;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            cursor: pointer;
         }
         .result-section {
             margin-top: 20px;
@@ -101,6 +136,12 @@
                 margin: 20px;
                 padding: 20px;
             }
+            .image-preview-container {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+            .image-preview img {
+                height: 80px;
+            }
         }
     </style>
 </head>
@@ -124,7 +165,7 @@
                         <button class="nav-link library-btn" data-bs-toggle="modal" data-bs-target="#libraryModal">Image Library</button>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#login">Login/Signup</a> <!-- Placeholder for future login page -->
+                        <a class="nav-link" href="#login">Login/Signup</a>
                     </li>
                 </ul>
             </div>
@@ -135,22 +176,20 @@
     <div class="hero-section">
         <div class="container">
             <h1>Compress & Share Your Images</h1>
-            <p class="lead">Easily compress images in JPEG, PNG, or WebP formats and share them instantly with ImgBB.</p>
+            <p class="lead">Easily compress multiple images in JPEG, PNG, or WebP formats and share them instantly with ImgBB.</p>
             <a href="#upload" class="btn btn-light btn-lg mt-4">Start Compressing</a>
         </div>
     </div>
 
     <!-- Upload Section -->
     <div class="container upload-container" id="upload">
-        <h2 class="text-center mb-4">Upload & Compress Image</h2>
+        <h2 class="text-center mb-4">Upload & Compress Images</h2>
         <form id="uploadForm">
-            <div class="mb-3">
-                <label for="imageInput" class="form-label">Select Image</label>
-                <input type="file" id="imageInput" class="form-control" accept="image/jpeg,image/png,image/webp" />
+            <div class="drop-zone mb-3" id="dropZone">
+                <p>Drag & drop images here or click to select (JPEG, PNG, WebP)</p>
+                <input type="file" id="imageInput" class="form-control d-none" accept="image/jpeg,image/png,image/webp" multiple />
             </div>
-            <div class="text-center">
-                <img id="imagePreview" class="image-preview" alt="Image Preview" />
-            </div>
+            <div id="imagePreviewContainer" class="image-preview-container"></div>
             <div class="mb-3">
                 <label for="formatSelect" class="form-label">Output Format</label>
                 <select id="formatSelect" class="form-select">
@@ -203,64 +242,112 @@
 
         const uploadForm = document.getElementById('uploadForm');
         const imageInput = document.getElementById('imageInput');
+        const dropZone = document.getElementById('dropZone');
         const formatSelect = document.getElementById('formatSelect');
-        const imagePreview = document.getElementById('imagePreview');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
         const statusDiv = document.getElementById('status');
         const resultDiv = document.getElementById('result');
+        let selectedFiles = [];
 
-        // Image preview
-        imageInput.addEventListener('change', () => {
-            const file = imageInput.files[0];
-            if (file) {
-                imagePreview.src = URL.createObjectURL(file);
-                imagePreview.style.display = 'block';
-            } else {
-                imagePreview.style.display = 'none';
-            }
+        // Drag-and-drop and click handling
+        dropZone.addEventListener('click', () => imageInput.click());
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
         });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        imageInput.addEventListener('change', () => {
+            handleFiles(imageInput.files);
+        });
+
+        function handleFiles(files) {
+            const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            const newFiles = Array.from(files).filter(file => validTypes.includes(file.type));
+            if (newFiles.length !== files.length) {
+                statusDiv.innerHTML = '<div class="alert alert-danger">Only JPEG, PNG, and WebP files are allowed.</div>';
+            }
+            selectedFiles = [...selectedFiles, ...newFiles];
+            updatePreviews();
+        }
+
+        function updatePreviews() {
+            imagePreviewContainer.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
+                const previewDiv = document.createElement('div');
+                previewDiv.className = 'image-preview';
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-btn';
+                removeBtn.textContent = '×';
+                removeBtn.onclick = () => {
+                    selectedFiles.splice(index, 1);
+                    updatePreviews();
+                };
+                const nameDiv = document.createElement('div');
+                nameDiv.textContent = file.name;
+                nameDiv.style.fontSize = '0.8rem';
+                nameDiv.style.textAlign = 'center';
+                previewDiv.appendChild(img);
+                previewDiv.appendChild(removeBtn);
+                previewDiv.appendChild(nameDiv);
+                imagePreviewContainer.appendChild(previewDiv);
+            });
+        }
 
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const file = imageInput.files[0];
-            const format = formatSelect.value;
-
-            if (!file) {
-                statusDiv.innerHTML = '<div class="alert alert-danger">Please select an image.</div>';
+            if (selectedFiles.length === 0) {
+                statusDiv.innerHTML = '<div class="alert alert-danger">Please select at least one image.</div>';
                 return;
             }
 
-            statusDiv.innerHTML = '<div class="alert alert-info">Processing image...</div>';
+            statusDiv.innerHTML = '<div class="alert alert-info">Processing images...</div>';
+            resultDiv.innerHTML = '';
 
             try {
-                const formData = new FormData();
-                formData.append('image', file);
-                formData.append('format', format);
+                for (const file of selectedFiles) {
+                    const formData = new FormData();
+                    formData.append('image', file);
+                    formData.append('format', formatSelect.value);
 
-                const response = await fetch('/api/compress', {
-                    method: 'POST',
-                    body: formData
-                });
+                    const response = await fetch('/api/compress', {
+                        method: 'POST',
+                        body: formData
+                    });
 
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const text = await response.text();
-                    throw new Error(`Invalid response from server: ${text.substring(0, 50)}...`);
-                }
-
-                const data = await response.json();
-                if (response.ok) {
-                    statusDiv.innerHTML = '<div class="alert alert-success">Image uploaded successfully!</div>';
-                    resultDiv.innerHTML = `
-                        <p><strong>Direct URL:</strong></p>
-                        <p class="url-display">${data.url}</p>
-                        <a href="${data.url}" target="_blank" class="btn btn-outline-primary mt-2">View Image</a>
-                    `;
-                    if (isLoggedIn) {
-                        console.log('Image saved to library (placeholder):', data.url);
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        const text = await response.text();
+                        throw new Error(`Invalid response from server for ${file.name}: ${text.substring(0, 50)}...`);
                     }
-                } else {
-                    statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${data.error || 'Unknown error. Please check your API key.'}</div>`;
+
+                    const data = await response.json();
+                    if (response.ok) {
+                        const resultItem = document.createElement('div');
+                        resultItem.innerHTML = `
+                            <p><strong>${file.name} URL:</strong></p>
+                            <p class="url-display">${data.url}</p>
+                            <a href="${data.url}" target="_blank" class="btn btn-outline-primary mt-2 mb-3">View Image</a>
+                        `;
+                        resultDiv.appendChild(resultItem);
+                        if (isLoggedIn) {
+                            console.log(`Image saved to library (placeholder) for ${file.name}:`, data.url);
+                        }
+                    } else {
+                        statusDiv.innerHTML += `<div class="alert alert-danger">Error for ${file.name}: ${data.error || 'Unknown error. Please check your API key.'}</div>`;
+                    }
                 }
+                statusDiv.innerHTML = '<div class="alert alert-success">All images processed successfully!</div>';
+                selectedFiles = [];
+                updatePreviews();
             } catch (error) {
                 statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}. Please ensure the API key is valid and try again.</div>`;
             }
