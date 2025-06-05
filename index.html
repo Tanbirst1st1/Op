@@ -114,7 +114,7 @@
         }
         .footer {
             margin-top: 50px;
-            intermediate: 30px;
+            padding: 30px;
             background: #212529;
             color: white;
             text-align: center;
@@ -184,7 +184,7 @@
     <div class="hero-section">
         <div class="container">
             <h1>Compress & Share Your Images</h1>
-            <p class="lead">Easily compress multiple images in JPEG, PNG, or WebP formats and share them instantly with ImgBB or Imgur.</p>
+            <p class="lead">Easily compress high-quality images in JPEG, PNG, or WebP formats and share them instantly with ImgBB.</p>
             <a href="#upload" class="btn btn-light btn-lg mt-4"><i class="bi bi-upload me-2"></i>Start Compressing</a>
         </div>
     </div>
@@ -192,25 +192,18 @@
     <!-- Upload Section -->
     <div class="container upload-container" id="upload">
         <h2 class="text-center mb-4"><i class="bi bi-image me-2"></i>Upload & Compress Images</h2>
-        <form id="uploadForm">
+        <form id="uploadForm" enctype="multipart/form-data">
             <div class="drop-zone mb-3" id="dropZone">
-                <p><i class="bi bi-cloud-upload me-2"></i>Drag & drop images here or click to select (JPEG, PNG, WebP)</p>
-                <input type="file" id="imageInput" class="form-control d-none" accept="image/jpeg,image/png,image/webp" multiple />
+                <p><i class="bi bi-cloud-upload me-2"></i>Drag & drop images here or click to select (JPEG, PNG, WebP, up to 50MB)</p>
+                <input type="file" id="imageInput" name="images" class="form-control d-none" accept="image/jpeg,image/png,image/webp" multiple />
             </div>
             <div id="imagePreviewContainer" class="image-preview-container"></div>
             <div class="mb-3">
                 <label for="formatSelect" class="form-label">Output Format</label>
-                <select id="formatSelect" class="form-select">
+                <select id="formatSelect" name="format" class="form-select">
                     <option value="jpeg">JPEG</option>
                     <option value="png">PNG</option>
                     <option value="webp">WebP</option>
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="serviceSelect" class="form-label">Upload Service</label>
-                <select id="serviceSelect" class="form-select">
-                    <option value="imgbb">ImgBB</option>
-                    <option value="imgur">Imgur</option>
                 </select>
             </div>
             <button type="submit" id="compressBtn" class="btn btn-primary w-100"><i class="bi bi-arrow-up-circle me-2"></i>Compress & Upload</button>
@@ -246,7 +239,6 @@
         const imageInput = document.getElementById('imageInput');
         const dropZone = document.getElementById('dropZone');
         const formatSelect = document.getElementById('formatSelect');
-        const serviceSelect = document.getElementById('serviceSelect');
         const imagePreviewContainer = document.getElementById('imagePreviewContainer');
         const statusDiv = document.getElementById('status');
         const resultDiv = document.getElementById('result');
@@ -273,10 +265,18 @@
 
         function handleFiles(files) {
             const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-            const newFiles = Array.from(files).filter(file => validTypes.includes(file.type));
-            if (newFiles.length !== files.length) {
-                statusDiv.innerHTML = '<div class="alert alert-danger">Only JPEG, PNG, and WebP files are allowed.</div>';
-            }
+            const maxSize = 50 * 1024 * 1024; // 50MB
+            const newFiles = Array.from(files).filter(file => {
+                if (!validTypes.includes(file.type)) {
+                    statusDiv.innerHTML = `<div class="alert alert-danger">${file.name}: Only JPEG, PNG, and WebP files are allowed.</div>`;
+                    return false;
+                }
+                if (file.size > maxSize) {
+                    statusDiv.innerHTML = `<div class="alert alert-danger">${file.name}: File size exceeds 50MB.</div>`;
+                    return false;
+                }
+                return true;
+            });
             selectedFiles = [...selectedFiles, ...newFiles];
             updatePreviews();
         }
@@ -317,43 +317,44 @@
             resultDiv.innerHTML = '';
 
             try {
-                for (const file of selectedFiles) {
-                    const formData = new FormData();
-                    formData.append('image', file);
-                    formData.append('format', formatSelect.value);
-                    formData.append('service', serviceSelect.value);
+                const formData = new FormData();
+                selectedFiles.forEach(file => formData.append('images', file));
+                formData.append('format', formatSelect.value);
 
-                    const response = await fetch(`/api/compress${serviceSelect.value === 'imgur' ? '-imgur' : ''}`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${token || ''}` },
-                        body: formData
-                    });
+                const response = await fetch('/api/compress', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token || ''}` },
+                    body: formData
+                });
 
-                    const contentType = response.headers.get('content-type');
-                    if (!contentType || !contentType.includes('application/json')) {
-                        const text = await response.text();
-                        throw new Error(`Invalid response from server for ${file.name}: ${text.substring(0, 50)}...`);
-                    }
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    throw new Error(`Invalid response from server: ${text.substring(0, 50)}...`);
+                }
 
-                    const data = await response.json();
-                    if (response.ok) {
+                const data = await response.json();
+                if (response.ok) {
+                    data.results.forEach(result => {
                         const resultItem = document.createElement('div');
                         resultItem.innerHTML = `
-                            <p><strong>${file.name} URL (${serviceSelect.value}):</strong></p>
-                            <p class="url-display">${data.url}</p>
-                            <a href="${data.url}" target="_blank" class="btn btn-outline-primary mt-2 mb-3">View Image</a>
+                            <p><strong>${result.filename} URL:</strong></p>
+                            <p class="url-display">${result.url}</p>
+                            <a href="${result.url}" target="_blank" class="btn btn-outline-primary mt-2 mb-3">View Image</a>
                         `;
                         resultDiv.appendChild(resultItem);
-                        if (isLoggedIn) {
-                            console.log(`Image saved to library (placeholder) for ${file.name}:`, data.url);
-                        }
-                    } else {
-                        statusDiv.innerHTML += `<div class="alert alert-danger">Error for ${file.name}: ${data.error || 'Unknown error. Please check your API key.'}</div>`;
+                    });
+                    if (data.errors) {
+                        data.errors.forEach(error => {
+                            statusDiv.innerHTML += `<div class="alert alert-danger">${error.error}</div>`;
+                        });
                     }
+                    statusDiv.innerHTML = '<div class="alert alert-success">Images processed successfully!</div>';
+                    selectedFiles = [];
+                    updatePreviews();
+                } else {
+                    statusDiv.innerHTML = `<div class="alert alert-danger">${data.error || 'Processing failed'}</div>`;
                 }
-                statusDiv.innerHTML = '<div class="alert alert-success">All images processed successfully!</div>';
-                selectedFiles = [];
-                updatePreviews();
             } catch (error) {
                 statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}. Please ensure the API key is valid and try again.</div>`;
             }
