@@ -9,45 +9,49 @@
     <style>
         body {
             background-color: #f8f9fa;
+            color: #212529;
             font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
         }
         .navbar {
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+            border-bottom: 1px solid #dee2e6;
         }
         .profile-container {
             max-width: 500px;
-            margin: 40px auto;
-            padding: 30px;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            margin: 30px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
         }
         .form-control:focus {
-            border-color: #5a67d8;
-            box-shadow: 0 0 0 0.2rem rgba(90, 103, 216, 0.25);
+            border-color: #343a40;
+            box-shadow: 0 0 0 0.2rem rgba(52, 58, 64, 0.25);
         }
         .btn-primary {
-            background-color: #5a67d8;
-            border-color: #5a67d8;
+            background-color: #343a40;
+            border-color: #343a40;
         }
         .btn-primary:hover {
-            background-color: #4c51bf;
-            border-color: #4c51bf;
+            background-color: #212529;
+            border-color: #212529;
         }
         .footer {
-            margin-top: 50px;
-            padding: 30px;
+            margin-top: 40px;
+            padding: 20px;
             background: #212529;
-            color: white;
+            color: #fff;
             text-align: center;
         }
         @media (max-width: 576px) {
-            .profile-container { margin: 20px; padding: 20px; }
+            .profile-container { margin: 15px; padding: 15px; }
+            .form-label, .form-control { font-size: 0.9rem; }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top">
+    <nav class="navbar navbar-expand-lg sticky-top">
         <div class="container">
             <a class="navbar-brand" href="/"><i class="bi bi-image me-2"></i>Image Compressor</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -62,7 +66,7 @@
                         <a class="nav-link" href="/#upload"><i class="bi bi-upload me-1"></i>Upload</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/library.html"><i class="bi bi-collection me-1"></i>Image Library</a>
+                        <a class="nav-link" href="/library.html"><i class="bi bi-collection me-1"></i>Library</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link active" href="/profile.html"><i class="bi bi-person me-1"></i>Profile</a>
@@ -80,7 +84,7 @@
         <form id="profileForm">
             <div class="mb-3">
                 <label for="apiKey" class="form-label"><i class="bi bi-key me-2"></i>New ImgBB API Key</label>
-                <input type="text" id="apiKey" class="form-control" placeholder="Enter new ImgBB API key (optional)">
+                <input type="text" id="apiKey" class="form-control" placeholder="Enter new API key (optional)">
             </div>
             <div class="mb-3">
                 <label for="oldPassword" class="form-label"><i class="bi bi-lock me-2"></i>Old Password</label>
@@ -117,12 +121,12 @@
             const newPassword = document.getElementById('newPassword').value;
 
             if (!apiKey && !oldPassword && !newPassword) {
-                statusDiv.innerHTML = '<div class="alert alert-danger">Please provide at least one field to update.</div>';
+                statusDiv.innerHTML = '<div class="alert alert-danger">Provide at least one field.</div>';
                 return;
             }
 
             if (newPassword && !oldPassword) {
-                statusDiv.innerHTML = '<div class="alert alert-danger">Old password is required to change password.</div>';
+                statusDiv.innerHTML = '<div class="alert alert-danger">Old password required.</div>';
                 return;
             }
 
@@ -139,12 +143,12 @@
                 const contentType = response.headers.get('content-type');
                 if (!contentType || !contentType.includes('application/json')) {
                     const text = await response.text();
-                    throw new Error(`Invalid response from server: ${text.substring(0, 50)}...`);
+                    throw new Error(`Invalid response: ${text.substring(0, 50)}...`);
                 }
 
                 const data = await response.json();
                 if (response.ok) {
-                    statusDiv.innerHTML = '<div class="alert alert-success">Profile updated successfully!</div>';
+                    statusDiv.innerHTML = '<div class="alert alert-success">Profile updated!</div>';
                     profileForm.reset();
                 } else {
                     statusDiv.innerHTML = `<div class="alert alert-danger">${data.error || 'Update failed'}</div>`;
