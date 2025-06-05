@@ -7,16 +7,42 @@ const fs = require('fs').promises;
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
+const { promisify } = require('util');
+const sleep = promisify(setTimeout);
 
 const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Multer for handling file uploads
-const upload = multer({ storage: multer.memoryStorage() });
+// Configure axios for reuse
+const axiosInstance = axios.create({ timeout: 30000 });
 
-// JWT secret (use environment variable in production)
+// Multer with increased file size limit (50MB)
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+    fileFilter: (req, file, cb) => {
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (validTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only JPEG, PNG, and WebP files are allowed'));
+        }
+    }
+});
+
+// JWT secret (required in production)
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
+
+// Rate limiter for signup/login
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // 100 requests per window
+    message: { error: 'Too many requests, please try again later' }
+});
+app.use('/api/signup', limiter);
+app.use('/api/login', limiter);
 
 // Read default ImgBB API key
 async function getDefaultApiKey() {
@@ -25,31 +51,37 @@ async function getDefaultApiKey() {
         return apiKey.trim();
     } catch (error) {
         console.warn('Failed to read imgbb_api.txt:', error.message);
-        return process.env.IMGBB_API_KEY || 'YOUR_IMGBB_API_KEY';
+        return process.env.IMGBB_API_KEY || null;
     }
 }
 
-// Load/save users
+// Load/save users with retry logic
 async function loadUsers() {
     try {
         const data = await fs.readFile(path.join(__dirname, 'users.json'), 'utf8');
         return JSON.parse(data);
     } catch (error) {
         if (error.code === 'ENOENT') {
-            await fs.writeFile(path.join(__dirname, 'users.json'), '[]');
+            await fs.writeFile(path.join(__dirname, 'users.json'), '[]', { mode: 0o600 });
             return [];
         }
-        console.error('Error loading users:', error.message);
-        throw new Error('Failed to load users');
+        throw new Error(`Failed to load users: ${error.message}`);
     }
 }
 
-async function saveUsers(users) {
-    try {
-        await fs.writeFile(path.join(__dirname, 'users.json'), JSON.stringify(users, null, 2));
-    } catch (error) {
-        console.error('Error saving users:', error.message);
-        throw new Error('Failed to save users');
+async function saveUsers(users, retries = 3) {
+    while (retries > 0) {
+        try {
+            await fs.writeFile(path.join(__dirname, 'users.json'), JSON.stringify(users, null, 2), { mode: 0o600 });
+            return;
+        } catch (error) {
+            retries--;
+            if (retries === 0) {
+                throw new Error(`Failed to save users: ${error.message}`);
+            }
+            console.warn(`Retrying saveUsers (${retries} left): ${error.message}`);
+            await sleep(100); // Wait 100ms before retry
+        }
     }
 }
 
@@ -60,20 +92,26 @@ async function loadImages() {
         return JSON.parse(data);
     } catch (error) {
         if (error.code === 'ENOENT') {
-            await fs.writeFile(path.join(__dirname, 'user_images.json'), '{}');
+            await fs.writeFile(path.join(__dirname, 'user_images.json'), '{}', { mode: 0o600 });
             return {};
         }
-        console.error('Error loading images:', error.message);
-        throw new Error('Failed to load images');
+        throw new Error(`Failed to load images: ${error.message}`);
     }
 }
 
-async function saveImages(images) {
-    try {
-        await fs.writeFile(path.join(__dirname, 'user_images.json'), JSON.stringify(images, null, 2));
-    } catch (error) {
-        console.error('Error saving images:', error.message);
-        throw new Error('Failed to save images');
+async function saveImages(images, retries = 3) {
+    while (retries > 0) {
+        try {
+            await fs.writeFile(path.join(__dirname, 'user_images.json'), JSON.stringify(images, null, 2), { mode: 0o600 });
+            return;
+        } catch (error) {
+            retries--;
+            if (retries === 0) {
+                throw new Error(`Failed to save images: ${error.message}`);
+            }
+            console.warn(`Retrying saveImages (${retries} left): ${error.message}`);
+            await sleep(100);
+        }
     }
 }
 
@@ -94,6 +132,9 @@ function authenticateToken(req, res, next) {
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
         const users = await loadUsers();
         const user = users.find(u => u.email === email);
 
@@ -114,7 +155,7 @@ app.post('/api/signup', async (req, res) => {
     try {
         const { email, password, apiKey } = req.body;
         if (!email || !password || !apiKey) {
-            return res.status(400).json({ error: 'Email, password, and API key are required' });
+            return res.status(400).json({ error: 'Email, password, and ImgBB API key are required' });
         }
 
         const users = await loadUsers();
@@ -135,10 +176,10 @@ app.post('/api/signup', async (req, res) => {
 });
 
 // Image compression and upload (ImgBB)
-app.post('/api/compress', upload.single('image'), async (req, res) => {
+app.post('/api/compress', upload.array('images', 10), async (req, res) => {
     try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No image provided' });
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ error: 'No images provided' });
         }
 
         const format = req.body.format || 'jpeg';
@@ -146,15 +187,6 @@ app.post('/api/compress', upload.single('image'), async (req, res) => {
         if (!validFormats.includes(format)) {
             return res.status(400).json({ error: 'Invalid format' });
         }
-
-        // Compress image
-        const compressedImage = await sharp(req.file.buffer)
-            .toFormat(format, {
-                quality: format === 'jpeg' || format === 'webp' ? 80 : undefined,
-                progressive: true,
-            })
-            .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
-            .toBuffer();
 
         // Get API key
         let apiKey;
@@ -172,135 +204,87 @@ app.post('/api/compress', upload.single('image'), async (req, res) => {
             apiKey = await getDefaultApiKey();
         }
 
-        // Upload to ImgBB
-        const formData = new FormData();
-        formData.append('image', compressedImage, {
-            filename: `compressed.${format}`,
-            contentType: `image/${format}`,
-        });
-
-        const response = await axios.post(`https://api.imgbb.com/1/upload?key=${apiKey}`, formData, {
-            headers: formData.getHeaders(),
-            validateStatus: status => status < 500,
-        });
-
-        const contentType = response.headers['content-type'];
-        if (!contentType || !contentType.includes('application/json')) {
-            console.error('Non-JSON response from ImgBB:', response.data);
-            return res.status(500).json({ error: `Invalid ImgBB response: ${String(response.data).substring(0, 50)}...` });
+        if (!apiKey) {
+            return res.status(400).json({ error: 'No valid ImgBB API key provided' });
         }
 
-        if (response.data.success) {
-            // Save to user library if logged in
-            if (req.headers.authorization) {
-                try {
-                    const { email } = jwt.verify(req.headers.authorization.split(' ')[1], JWT_SECRET);
-                    const images = await loadImages();
-                    if (!images[email]) images[email] = [];
-                    images[email].push({
-                        filename: req.file.originalname,
-                        url: response.data.data.url,
-                        uploadDate: new Date().toISOString()
-                    });
-                    await saveImages(images);
-                } catch (error) {
-                    console.warn('Failed to save to library:', error.message);
-                }
-            }
-            res.json({ url: response.data.data.url });
-        } else {
-            console.error('ImgBB error:', response.data);
-            res.status(400).json({ error: response.data.error.message || 'ImgBB upload failed' });
-        }
-    } catch (error) {
-        console.error('Server error:', error);
-        res.status(500).json({ error: `Server error: ${error.message}` });
-    }
-});
-
-// Image compression and upload (Imgur - Maker Worker)
-app.post('/api/compress-imgur', upload.single('image'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No image provided' });
-        }
-
-        const format = req.body.format || 'jpeg';
-        const validFormats = ['jpeg', 'png', 'webp'];
-        if (!validFormats.includes(format)) {
-            return res.status(400).json({ error: 'Invalid format' });
-        }
-
-        // Compress image
-        const compressedImage = await sharp(req.file.buffer)
-            .toFormat(format, {
-                quality: format === 'jpeg' || format === 'webp' ? 80 : undefined,
-                progressive: true,
-            })
-            .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
-            .toBuffer();
-
-        // Get API key
-        let apiKey;
-        if (req.headers.authorization) {
-            const token = req.headers.authorization.split(' ')[1];
+        // Process images in parallel
+        const results = await Promise.all(req.files.map(async file => {
             try {
-                const { email } = jwt.verify(token, JWT_SECRET);
-                const users = await loadUsers();
-                const user = users.find(u => u.email === email);
-                apiKey = user?.apiKey || await getDefaultApiKey();
-            } catch (error) {
-                apiKey = await getDefaultApiKey();
-            }
-        } else {
-            apiKey = await getDefaultApiKey();
-        }
+                // Stream image processing for large files
+                const compressedImage = await sharp(file.buffer, { animated: false })
+                    .toFormat(format, {
+                        quality: format === 'jpeg' || format === 'webp' ? 90 : 100, // High quality
+                        progressive: true,
+                        effort: 1 // Faster compression
+                    })
+                    .resize({ width: 3840, height: 3840, fit: 'inside', withoutEnlargement: true }) // Support 4K
+                    .toBuffer();
 
-        // Upload to Imgur
-        const formData = new FormData();
-        formData.append('image', compressedImage, {
-            filename: `compressed.${format}`,
-            contentType: `image/${format}`,
-        });
+                // Upload to ImgBB
+                const formData = new FormData();
+                formData.append('image', compressedImage, {
+                    filename: `compressed-${file.originalname}.${format}`,
+                    contentType: `image/${format}`,
+                });
 
-        const response = await axios.post('https://api.imgur.com/3/image', formData, {
-            headers: {
-                ...formData.getHeaders(),
-                Authorization: `Client-ID ${apiKey}`,
-            },
-            validateStatus: status => status < 500,
-        });
+                const response = await axiosInstance.post(
+                    `https://api.imgbb.com/1/upload?key=${apiKey}`,
+                    formData,
+                    { headers: formData.getHeaders() }
+                );
 
-        const contentType = response.headers['content-type'];
-        if (!contentType || !contentType.includes('application/json')) {
-            console.error('Non-JSON response from Imgur:', response.data);
-            return res.status(500).json({ error: `Invalid Imgur response: ${String(response.data).substring(0, 50)}...` });
-        }
-
-        if (response.data.success) {
-            // Save to user library if logged in
-            if (req.headers.authorization) {
-                try {
-                    const { email } = jwt.verify(req.headers.authorization.split(' ')[1], JWT_SECRET);
-                    const images = await loadImages();
-                    if (!images[email]) images[email] = [];
-                    images[email].push({
-                        filename: req.file.originalname,
-                        url: response.data.data.link,
-                        uploadDate: new Date().toISOString()
-                    });
-                    await saveImages(images);
-                } catch (error) {
-                    console.warn('Failed to save to library:', error.message);
+                if (!response.data.success) {
+                    throw new Error(response.data.error.message || 'ImgBB upload failed');
                 }
+
+                // Save to user library if logged in
+                let savedToLibrary = false;
+                if (req.headers.authorization) {
+                    try {
+                        const { email } = jwt.verify(req.headers.authorization.split(' ')[1], JWT_SECRET);
+                        const images = await loadImages();
+                        if (!images[email]) images[email] = [];
+                        images[email].push({
+                            filename: file.originalname,
+                            url: response.data.data.url,
+                            uploadDate: new Date().toISOString()
+                        });
+                        await saveImages(images);
+                        savedToLibrary = true;
+                    } catch (error) {
+                        console.warn(`Failed to save to library for ${file.originalname}:`, error.message);
+                    }
+                }
+
+                return {
+                    filename: file.originalname,
+                    url: response.data.data.url,
+                    savedToLibrary
+                };
+            } catch (error) {
+                return {
+                    filename: file.originalname,
+                    error: `Failed to process ${file.originalname}: ${error.message}`
+                };
             }
-            res.json({ url: response.data.data.link });
-        } else {
-            console.error('Imgur error:', response.data);
-            res.status(400).json({ error: response.data.data.error || 'Imgur upload failed' });
+        }));
+
+        // Separate successful and failed results
+        const successes = results.filter(r => !r.error);
+        const errors = results.filter(r => r.error);
+
+        if (successes.length === 0) {
+            return res.status(400).json({ error: 'All images failed to process', details: errors });
         }
+
+        res.json({
+            success: true,
+            results: successes,
+            errors: errors.length > 0 ? errors : undefined
+        });
     } catch (error) {
-        console.error('Server error:', error);
+        console.error('Server error:', error.message);
         res.status(500).json({ error: `Server error: ${error.message}` });
     }
 });
@@ -320,6 +304,9 @@ app.get('/api/images', authenticateToken, async (req, res) => {
 app.delete('/api/images', authenticateToken, async (req, res) => {
     try {
         const { index } = req.body;
+        if (typeof index !== 'number') {
+            return res.status(400).json({ error: 'Invalid index' });
+        }
         const images = await loadImages();
         if (images[req.user.email] && images[req.user.email][index]) {
             images[req.user.email].splice(index, 1);
@@ -334,6 +321,15 @@ app.delete('/api/images', authenticateToken, async (req, res) => {
     }
 });
 
-// Start server (for local testing)
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Unhandled error:', err.message);
+    if (err instanceof multer.MulterError) {
+        return res.status(400).json({ error: `Multer error: ${err.message}` });
+    }
+    res.status(500).json({ error: `Server error: ${err.message}` });
+});
+
+// Start server
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`Server running on port ${port}`));
