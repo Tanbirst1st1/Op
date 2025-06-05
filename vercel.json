@@ -24,6 +24,10 @@
         {
             "src": "library.html",
             "use": "@vercel/static"
+        },
+        {
+            "src": "profile.html",
+            "use": "@vercel/static"
         }
     ],
     "routes": [
@@ -42,6 +46,10 @@
         {
             "src": "/library.html",
             "dest": "library.html"
+        },
+        {
+            "src": "/profile.html",
+            "dest": "profile.html"
         },
         {
             "src": "/(.*)",
