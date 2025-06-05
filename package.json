@@ -13,7 +13,8 @@
         "sharp": "^0.33.5",
         "jsonwebtoken": "^9.0.2",
         "bcryptjs": "^2.4.3",
-        "express-rate-limit": "^7.4.0"
+        "express-rate-limit": "^7.4.0",
+        "mysql2": "^3.11.0"
     },
     "engines": {
         "node": ">=14"
