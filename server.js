@@ -8,20 +8,25 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
-const { promisify } = require('util');
-const sleep = promisify(setTimeout);
+const db = require('./db');
 
 const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Configure axios for reuse
+// Initialize database
+db.initDatabase().catch(error => {
+    console.error('Failed to initialize database:', error.message);
+    process.exit(1);
+});
+
+// Configure axios
 const axiosInstance = axios.create({ timeout: 30000 });
 
-// Multer with increased file size limit (50MB)
+// Multer with 50MB limit and validation
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+    limits: { fileSize: 50 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
         if (validTypes.includes(file.mimetype)) {
@@ -32,13 +37,13 @@ const upload = multer({
     }
 });
 
-// JWT secret (required in production)
+// JWT secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
-// Rate limiter for signup/login
+// Rate limiter
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // 100 requests per window
+    windowMs: 15 * 60 * 1000,
+    max: 100,
     message: { error: 'Too many requests, please try again later' }
 });
 app.use('/api/signup', limiter);
@@ -52,66 +57,6 @@ async function getDefaultApiKey() {
     } catch (error) {
         console.warn('Failed to read imgbb_api.txt:', error.message);
         return process.env.IMGBB_API_KEY || null;
-    }
-}
-
-// Load/save users with retry logic
-async function loadUsers() {
-    try {
-        const data = await fs.readFile(path.join(__dirname, 'users.json'), 'utf8');
-        return JSON.parse(data);
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            await fs.writeFile(path.join(__dirname, 'users.json'), '[]', { mode: 0o600 });
-            return [];
-        }
-        throw new Error(`Failed to load users: ${error.message}`);
-    }
-}
-
-async function saveUsers(users, retries = 3) {
-    while (retries > 0) {
-        try {
-            await fs.writeFile(path.join(__dirname, 'users.json'), JSON.stringify(users, null, 2), { mode: 0o600 });
-            return;
-        } catch (error) {
-            retries--;
-            if (retries === 0) {
-                throw new Error(`Failed to save users: ${error.message}`);
-            }
-            console.warn(`Retrying saveUsers (${retries} left): ${error.message}`);
-            await sleep(100); // Wait 100ms before retry
-        }
-    }
-}
-
-// Load/save image library
-async function loadImages() {
-    try {
-        const data = await fs.readFile(path.join(__dirname, 'user_images.json'), 'utf8');
-        return JSON.parse(data);
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            await fs.writeFile(path.join(__dirname, 'user_images.json'), '{}', { mode: 0o600 });
-            return {};
-        }
-        throw new Error(`Failed to load images: ${error.message}`);
-    }
-}
-
-async function saveImages(images, retries = 3) {
-    while (retries > 0) {
-        try {
-            await fs.writeFile(path.join(__dirname, 'user_images.json'), JSON.stringify(images, null, 2), { mode: 0o600 });
-            return;
-        } catch (error) {
-            retries--;
-            if (retries === 0) {
-                throw new Error(`Failed to save images: ${error.message}`);
-            }
-            console.warn(`Retrying saveImages (${retries} left): ${error.message}`);
-            await sleep(100);
-        }
     }
 }
 
@@ -135,14 +80,11 @@ app.post('/api/login', async (req, res) => {
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password are required' });
         }
-        const users = await loadUsers();
-        const user = users.find(u => u.email === email);
-
+        const user = await db.getUserByEmail(email);
         if (!user || !await bcrypt.compare(password, user.password)) {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
-
-        const token = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
         res.json({ token });
     } catch (error) {
         console.error('Login error:', error.message);
@@ -157,21 +99,13 @@ app.post('/api/signup', async (req, res) => {
         if (!email || !password || !apiKey) {
             return res.status(400).json({ error: 'Email, password, and ImgBB API key are required' });
         }
-
-        const users = await loadUsers();
-        if (users.find(u => u.email === email)) {
-            return res.status(400).json({ error: 'Email already exists' });
-        }
-
         const hashedPassword = await bcrypt.hash(password, 10);
-        users.push({ email, password: hashedPassword, apiKey });
-        await saveUsers(users);
-
-        const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
+        const user = await db.createUser(email, hashedPassword, apiKey);
+        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
         res.json({ token });
     } catch (error) {
         console.error('Signup error:', error.message);
-        res.status(500).json({ error: `Server error during signup: ${error.message}` });
+        res.status(400).json({ error: error.message });
     }
 });
 
@@ -193,10 +127,9 @@ app.post('/api/compress', upload.array('images', 10), async (req, res) => {
         if (req.headers.authorization) {
             const token = req.headers.authorization.split(' ')[1];
             try {
-                const { email } = jwt.verify(token, JWT_SECRET);
-                const users = await loadUsers();
-                const user = users.find(u => u.email === email);
-                apiKey = user?.apiKey || await getDefaultApiKey();
+                const { id } = jwt.verify(token, JWT_SECRET);
+                const user = await db.getUserByEmail((await db.getUserByEmail(req.user.email)).email);
+                apiKey = user?.api_key || await getDefaultApiKey();
             } catch (error) {
                 apiKey = await getDefaultApiKey();
             }
@@ -211,17 +144,15 @@ app.post('/api/compress', upload.array('images', 10), async (req, res) => {
         // Process images in parallel
         const results = await Promise.all(req.files.map(async file => {
             try {
-                // Stream image processing for large files
                 const compressedImage = await sharp(file.buffer, { animated: false })
                     .toFormat(format, {
-                        quality: format === 'jpeg' || format === 'webp' ? 90 : 100, // High quality
+                        quality: format === 'jpeg' || format === 'webp' ? 90 : 100,
                         progressive: true,
-                        effort: 1 // Faster compression
+                        effort: 1
                     })
-                    .resize({ width: 3840, height: 3840, fit: 'inside', withoutEnlargement: true }) // Support 4K
+                    .resize({ width: 3840, height: 3840, fit: 'inside', withoutEnlargement: true })
                     .toBuffer();
 
-                // Upload to ImgBB
                 const formData = new FormData();
                 formData.append('image', compressedImage, {
                     filename: `compressed-${file.originalname}.${format}`,
@@ -242,15 +173,8 @@ app.post('/api/compress', upload.array('images', 10), async (req, res) => {
                 let savedToLibrary = false;
                 if (req.headers.authorization) {
                     try {
-                        const { email } = jwt.verify(req.headers.authorization.split(' ')[1], JWT_SECRET);
-                        const images = await loadImages();
-                        if (!images[email]) images[email] = [];
-                        images[email].push({
-                            filename: file.originalname,
-                            url: response.data.data.url,
-                            uploadDate: new Date().toISOString()
-                        });
-                        await saveImages(images);
+                        const { id } = jwt.verify(req.headers.authorization.split(' ')[1], JWT_SECRET);
+                        await db.addImage(id, file.originalname, response.data.data.url);
                         savedToLibrary = true;
                     } catch (error) {
                         console.warn(`Failed to save to library for ${file.originalname}:`, error.message);
@@ -270,7 +194,6 @@ app.post('/api/compress', upload.array('images', 10), async (req, res) => {
             }
         }));
 
-        // Separate successful and failed results
         const successes = results.filter(r => !r.error);
         const errors = results.filter(r => r.error);
 
@@ -292,8 +215,8 @@ app.post('/api/compress', upload.array('images', 10), async (req, res) => {
 // Image library endpoint
 app.get('/api/images', authenticateToken, async (req, res) => {
     try {
-        const images = await loadImages();
-        res.json({ images: images[req.user.email] || [] });
+        const images = await db.getImagesByUserId(req.user.id);
+        res.json({ images });
     } catch (error) {
         console.error('Error fetching images:', error.message);
         res.status(500).json({ error: 'Failed to fetch images' });
@@ -307,17 +230,11 @@ app.delete('/api/images', authenticateToken, async (req, res) => {
         if (typeof index !== 'number') {
             return res.status(400).json({ error: 'Invalid index' });
         }
-        const images = await loadImages();
-        if (images[req.user.email] && images[req.user.email][index]) {
-            images[req.user.email].splice(index, 1);
-            await saveImages(images);
-            res.json({ success: true });
-        } else {
-            res.status(400).json({ error: 'Image not found' });
-        }
+        await db.deleteImage(req.user.id, index);
+        res.json({ success: true });
     } catch (error) {
         console.error('Error deleting image:', error.message);
-        res.status(500).json({ error: 'Failed to delete image' });
+        res.status(400).json({ error: error.message });
     }
 });
 
