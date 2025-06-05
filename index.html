@@ -9,99 +9,90 @@
     <style>
         body {
             background-color: #f8f9fa;
+            color: #212529;
             font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
         }
         .navbar {
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+            border-bottom: 1px solid #dee2e6;
         }
         .hero-section {
-            background: linear-gradient(135deg, #5a67d8, #9f7aea);
-            color: white;
-            padding: 80px 0;
+            background-color: #fff;
+            color: #212529;
+            padding: 60px 0;
             text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-        .hero-section::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle, rgba(255,255,255,0.2), transparent);
-            opacity: 0.3;
         }
         .hero-section h1 {
-            font-size: 3rem;
+            font-size: 2.5rem;
             font-weight: 700;
-            animation: fadeInDown 1s ease-in-out;
         }
         .hero-section p {
-            font-size: 1.25rem;
+            font-size: 1.1rem;
             max-width: 600px;
             margin: 0 auto;
         }
         .upload-container {
             max-width: 700px;
-            margin: 40px auto;
-            padding: 30px;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            margin: 30px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
         }
         .drop-zone {
-            border: 2px dashed #6c757d;
+            border: 2px dashed #dee2e6;
             padding: 20px;
             text-align: center;
-            background: #f1f3f5;
-            border-radius: 10px;
-            transition: all 0.3s ease;
+            background: #f8f9fa;
+            border-radius: 8px;
             cursor: pointer;
         }
         .drop-zone.dragover {
-            background: #e1e7ff;
-            border-color: #5a67d8;
+            background: #e9ecef;
+            border-color: #343a40;
         }
         .image-preview-container {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
         }
         .image-preview {
             position: relative;
-            border-radius: 8px;
+            border-radius: 6px;
             overflow: hidden;
+            max-width: 100%;
         }
         .image-preview img {
-            max-width: 100%;
-            height: 100px;
+            width: 100%;
+            height: 80px;
             object-fit: cover;
         }
         .image-preview .remove-btn {
             position: absolute;
             top: 5px;
             right: 5px;
-            background: red;
-            color: white;
+            background: #dc3545;
+            color: #fff;
             border: none;
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            line-height: 24px;
+            width: 20px;
+            height: 20px;
+            line-height: 20px;
+            font-size: 0.8rem;
             cursor: pointer;
         }
         .result-section {
-            margin-top: 20px;
+            margin-top: 15px;
             text-align: center;
         }
         .url-display {
             word-break: break-all;
             background: #e9ecef;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 0.9rem;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
         }
         .library-btn, .profile-btn {
             display: none;
@@ -110,31 +101,39 @@
             display: inline-block;
         }
         .footer {
-            margin-top: 50px;
-            padding: 30px;
+            margin-top: 40px;
+            padding: 20px;
             background: #212529;
-            color: white;
+            color: #fff;
             text-align: center;
         }
-        .alert-danger {
-            max-width: 700px;
-            margin: 15px auto;
+        .btn-primary {
+            background-color: #343a40;
+            border-color: #343a40;
         }
-        @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
+        .btn-primary:hover {
+            background-color: #212529;
+            border-color: #212529;
+        }
+        .progress-modal .modal-content {
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+        }
+        .progress-bar {
+            background-color: #343a40;
         }
         @media (max-width: 576px) {
-            .hero-section h1 { font-size: 2rem; }
+            .hero-section h1 { font-size: 1.8rem; }
             .hero-section p { font-size: 1rem; }
-            .upload-container { margin: 20px; padding: 20px; }
-            .image-preview-container { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
-            .image-preview img { height: 80px; }
+            .upload-container { margin: 15px; padding: 15px; }
+            .image-preview-container { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+            .image-preview img { height: 60px; }
+            .navbar-nav .nav-link { font-size: 0.9rem; }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top">
+    <nav class="navbar navbar-expand-lg sticky-top">
         <div class="container">
             <a class="navbar-brand" href="/"><i class="bi bi-image me-2"></i>Image Compressor</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -149,7 +148,7 @@
                         <a class="nav-link" href="#upload"><i class="bi bi-upload me-1"></i>Upload</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link library-btn" href="/library.html"><i class="bi bi-collection me-1"></i>Image Library</a>
+                        <a class="nav-link library-btn" href="/library.html"><i class="bi bi-collection me-1"></i>Library</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link profile-btn" href="/profile.html"><i class="bi bi-person me-1"></i>Profile</a>
@@ -170,17 +169,17 @@
 
     <div class="hero-section">
         <div class="container">
-            <h1>Compress & Share Your Images</h1>
-            <p class="lead">Easily compress high-quality images in JPEG, PNG, or WebP formats and share them instantly with ImgBB.</p>
-            <a href="#upload" class="btn btn-light btn-lg mt-4"><i class="bi bi-upload me-2"></i>Start Compressing</a>
+            <h1>Compress & Share Images</h1>
+            <p>Effortlessly compress high-quality images and share them via ImgBB.</p>
+            <a href="#upload" class="btn btn-primary btn-lg mt-3"><i class="bi bi-upload me-2"></i>Start Now</a>
         </div>
     </div>
 
     <div class="container upload-container" id="upload">
-        <h2 class="text-center mb-4"><i class="bi bi-image me-2"></i>Upload & Compress Images</h2>
+        <h2 class="text-center mb-4"><i class="bi bi-image me-2"></i>Upload & Compress</h2>
         <form id="uploadForm" enctype="multipart/form-data">
             <div class="drop-zone mb-3" id="dropZone">
-                <p><i class="bi bi-cloud-upload me-2"></i>Drag & drop images here or click to select (JPEG, PNG, WebP, up to 50MB)</p>
+                <p><i class="bi bi-cloud-upload me-2"></i>Drag & drop images or click to select (JPEG, PNG, WebP, up to 50MB)</p>
                 <input type="file" id="imageInput" name="images" class="form-control d-none" accept="image/jpeg,image/png,image/webp" multiple />
             </div>
             <div id="imagePreviewContainer" class="image-preview-container"></div>
@@ -195,10 +194,24 @@
             <button type="submit" id="compressBtn" class="btn btn-primary w-100"><i class="bi bi-arrow-up-circle me-2"></i>Compress & Upload</button>
         </form>
         <div class="text-center mt-3">
-            <a href="/library.html" class="btn btn-secondary library-btn"><i class="bi bi-collection me-2"></i>View Image Library</a>
+            <a href="/library.html" class="btn btn-secondary library-btn"><i class="bi bi-collection me-2"></i>View Library</a>
         </div>
         <div id="status" class="result-section"></div>
         <div id="result" class="result-section"></div>
+    </div>
+
+    <!-- Progress Modal -->
+    <div class="modal fade progress-modal" id="progressModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-body text-center">
+                    <h5>Processing Images...</h5>
+                    <div class="progress mt-3">
+                        <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <footer class="footer">
@@ -225,6 +238,8 @@
         const statusDiv = document.getElementById('status');
         const resultDiv = document.getElementById('result');
         const logoutBtn = document.getElementById('logoutBtn');
+        const progressModal = new bootstrap.Modal(document.getElementById('progressModal'), { backdrop: 'static', keyboard: false });
+        const progressBar = document.getElementById('progressBar');
         let selectedFiles = [];
 
         dropZone.addEventListener('click', () => imageInput.click());
@@ -249,7 +264,7 @@
             const maxSize = 50 * 1024 * 1024;
             const newFiles = Array.from(files).filter(file => {
                 if (!validTypes.includes(file.type)) {
-                    statusDiv.innerHTML = `<div class="alert alert-danger">${file.name}: Only JPEG, PNG, and WebP files are allowed.</div>`;
+                    statusDiv.innerHTML = `<div class="alert alert-danger">${file.name}: Only JPEG, PNG, and WebP allowed.</div>`;
                     return false;
                 }
                 if (file.size > maxSize) {
@@ -278,7 +293,7 @@
                 };
                 const nameDiv = document.createElement('div');
                 nameDiv.textContent = file.name;
-                nameDiv.style.fontSize = '0.8rem';
+                nameDiv.style.fontSize = '0.75rem';
                 nameDiv.style.textAlign = 'center';
                 previewDiv.appendChild(img);
                 previewDiv.appendChild(removeBtn);
@@ -287,15 +302,30 @@
             });
         }
 
+        function simulateProgress() {
+            let progress = 0;
+            progressBar.style.width = '0%';
+            progressBar.textContent = '0%';
+            const interval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress > 90) progress = 90;
+                progressBar.style.width = `${progress}%`;
+                progressBar.textContent = `${Math.round(progress)}%`;
+                progressBar.setAttribute('aria-valuenow', Math.round(progress));
+            }, 500);
+            return interval;
+        }
+
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (selectedFiles.length === 0) {
-                statusDiv.innerHTML = '<div class="alert alert-danger">Please select at least one image.</div>';
+                statusDiv.innerHTML = '<div class="alert alert-danger">Select at least one image.</div>';
                 return;
             }
 
-            statusDiv.innerHTML = '<div class="alert alert-info">Processing images...</div>';
-            resultDiv.innerHTML = '';
+            statusDiv.innerHTML = '';
+            progressModal.show();
+            const interval = simulateProgress();
 
             try {
                 const formData = new FormData();
@@ -308,10 +338,15 @@
                     body: formData
                 });
 
+                clearInterval(interval);
+                progressBar.style.width = '100%';
+                progressBar.textContent = '100%';
+                progressModal.hide();
+
                 const contentType = response.headers.get('content-type');
                 if (!contentType || !contentType.includes('application/json')) {
                     const text = await response.text();
-                    throw new Error(`Invalid response from server: ${text.substring(0, 50)}...`);
+                    throw new Error(`Invalid response: ${text.substring(0, 50)}...`);
                 }
 
                 const data = await response.json();
@@ -330,14 +365,16 @@
                             statusDiv.innerHTML += `<div class="alert alert-danger">${error.error}</div>`;
                         });
                     }
-                    statusDiv.innerHTML = '<div class="alert alert-success">Images processed successfully!</div>';
+                    statusDiv.innerHTML = '<div class="alert alert-success">Images processed!</div>';
                     selectedFiles = [];
                     updatePreviews();
                 } else {
                     statusDiv.innerHTML = `<div class="alert alert-danger">${data.error || 'Processing failed'}</div>`;
                 }
             } catch (error) {
-                statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}. Please ensure the API key is valid and try again.</div>`;
+                clearInterval(interval);
+                progressModal.hide();
+                statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}. Check API key.</div>`;
             }
         });
 
