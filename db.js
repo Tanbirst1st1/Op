@@ -1,10 +1,10 @@
 const mysql = require('mysql2/promise');
 
 const pool = mysql.createPool({
-    host: 'sql12.freesqldatabase.com',
-    user: 'sql12783177',
-    password: 'eAGyw5gSiG',
-    database: 'sql12783177',
+    host: 'mysql-11c55194-tanbirst2st2-d803.j.aivencloud.com',
+    user: 'avnadmin',
+    password: 'AVNS_6tjU411eMP5xgaxNai5',
+    database: 'defaultdb',
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
