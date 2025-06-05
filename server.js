@@ -1,252 +1,134 @@
-const express = require('express');
-const multer = require('multer');
-const sharp = require('sharp');
-const axios = require('axios');
-const FormData = require('form-data');
-const fs = require('fs').promises;
-const path = require('path');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const rateLimit = require('express-rate-limit');
-const db = require('./db');
+const mysql = require('mysql2/promise');
 
-const app = express();
-app.use(express.json());
-app.use(express.static(__dirname));
-
-// Initialize database
-db.initDatabase().catch(error => {
-    console.error('Failed to initialize database:', error.message);
-    process.exit(1);
+const pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'image_compressor',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
-// Configure axios
-const axiosInstance = axios.create({ timeout: 30000 });
-
-// Multer with 50MB limit and validation
-const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 50 * 1024 * 1024 },
-    fileFilter: (req, file, cb) => {
-        const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-        if (validTypes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Only JPEG, PNG, and WebP files are allowed'));
-        }
-    }
-});
-
-// JWT secret
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
-
-// Rate limiter
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    message: { error: 'Too many requests, please try again later' }
-});
-app.use('/api/signup', limiter);
-app.use('/api/login', limiter);
-
-// Read default ImgBB API key
-async function getDefaultApiKey() {
+async function initDatabase() {
     try {
-        const apiKey = await fs.readFile(path.join(__dirname, 'imgbb_api.txt'), 'utf8');
-        return apiKey.trim();
+        const connection = await pool.getConnection();
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                api_key VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS user_images (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                filename VARCHAR(255) NOT NULL,
+                url TEXT NOT NULL,
+                imgbb_id VARCHAR(50),
+                upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        `);
+        connection.release();
+        console.log('Database initialized');
     } catch (error) {
-        console.warn('Failed to read imgbb_api.txt:', error.message);
-        return process.env.IMGBB_API_KEY || null;
+        console.error('Error initializing database:', error.message);
+        throw error;
     }
 }
 
-// Middleware to verify JWT
-function authenticateToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-    jwt.verify(token, JWT_SECRET, (err, user) => {
-        if (err) return res.status(403).json({ error: 'Invalid token' });
-        req.user = user;
-        next();
-    });
+async function createUser(email, password, apiKey) {
+    try {
+        const [result] = await pool.query(
+            'INSERT INTO users (email, password, api_key) VALUES (?, ?, ?)',
+            [email, password, apiKey]
+        );
+        return { id: result.insertId, email, api_key: apiKey };
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            throw new Error('Email already exists');
+        }
+        throw new Error(`Failed to create user: ${error.message}`);
+    }
 }
 
-// Login endpoint
-app.post('/api/login', async (req, res) => {
+async function getUserByEmail(email) {
     try {
-        const { email, password } = req.body;
-        if (!email || !password) {
-            return res.status(400).json({ error: 'Email and password are required' });
-        }
-        const user = await db.getUserByEmail(email);
-        if (!user || !await bcrypt.compare(password, user.password)) {
-            return res.status(401).json({ error: 'Invalid email or password' });
-        }
-        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
-        res.json({ token });
+        const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+        return rows[0] || null;
     } catch (error) {
-        console.error('Login error:', error.message);
-        res.status(500).json({ error: 'Server error during login' });
+        throw new Error(`Failed to get user: ${error.message}`);
     }
-});
+}
 
-// Signup endpoint
-app.post('/api/signup', async (req, res) => {
+async function updateUserApiKey(userId, apiKey) {
     try {
-        const { email, password, apiKey } = req.body;
-        if (!email || !password || !apiKey) {
-            return res.status(400).json({ error: 'Email, password, and ImgBB API key are required' });
-        }
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const user = await db.createUser(email, hashedPassword, apiKey);
-        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
-        res.json({ token });
+        await pool.query('UPDATE users SET api_key = ? WHERE id = ?', [apiKey, userId]);
     } catch (error) {
-        console.error('Signup error:', error.message);
-        res.status(400).json({ error: error.message });
+        throw new Error(`Failed to update API key: ${error.message}`);
     }
-});
+}
 
-// Image compression and upload (ImgBB)
-app.post('/api/compress', upload.array('images', 10), async (req, res) => {
+async function updateUserPassword(userId, password) {
     try {
-        if (!req.files || req.files.length === 0) {
-            return res.status(400).json({ error: 'No images provided' });
-        }
+        await pool.query('UPDATE users SET password = ? WHERE id = ?', [password, userId]);
+    } catch (error) {
+        throw new Error(`Failed to update password: ${error.message}`);
+    }
+}
 
-        const format = req.body.format || 'jpeg';
-        const validFormats = ['jpeg', 'png', 'webp'];
-        if (!validFormats.includes(format)) {
-            return res.status(400).json({ error: 'Invalid format' });
-        }
-
-        // Get API key
-        let apiKey;
-        if (req.headers.authorization) {
-            const token = req.headers.authorization.split(' ')[1];
-            try {
-                const { id } = jwt.verify(token, JWT_SECRET);
-                const user = await db.getUserByEmail((await db.getUserByEmail(req.user.email)).email);
-                apiKey = user?.api_key || await getDefaultApiKey();
-            } catch (error) {
-                apiKey = await getDefaultApiKey();
-            }
-        } else {
-            apiKey = await getDefaultApiKey();
-        }
-
-        if (!apiKey) {
-            return res.status(400).json({ error: 'No valid ImgBB API key provided' });
-        }
-
-        // Process images in parallel
-        const results = await Promise.all(req.files.map(async file => {
-            try {
-                const compressedImage = await sharp(file.buffer, { animated: false })
-                    .toFormat(format, {
-                        quality: format === 'jpeg' || format === 'webp' ? 90 : 100,
-                        progressive: true,
-                        effort: 1
-                    })
-                    .resize({ width: 3840, height: 3840, fit: 'inside', withoutEnlargement: true })
-                    .toBuffer();
-
-                const formData = new FormData();
-                formData.append('image', compressedImage, {
-                    filename: `compressed-${file.originalname}.${format}`,
-                    contentType: `image/${format}`,
-                });
-
-                const response = await axiosInstance.post(
-                    `https://api.imgbb.com/1/upload?key=${apiKey}`,
-                    formData,
-                    { headers: formData.getHeaders() }
-                );
-
-                if (!response.data.success) {
-                    throw new Error(response.data.error.message || 'ImgBB upload failed');
-                }
-
-                // Save to user library if logged in
-                let savedToLibrary = false;
-                if (req.headers.authorization) {
-                    try {
-                        const { id } = jwt.verify(req.headers.authorization.split(' ')[1], JWT_SECRET);
-                        await db.addImage(id, file.originalname, response.data.data.url);
-                        savedToLibrary = true;
-                    } catch (error) {
-                        console.warn(`Failed to save to library for ${file.originalname}:`, error.message);
-                    }
-                }
-
-                return {
-                    filename: file.originalname,
-                    url: response.data.data.url,
-                    savedToLibrary
-                };
-            } catch (error) {
-                return {
-                    filename: file.originalname,
-                    error: `Failed to process ${file.originalname}: ${error.message}`
-                };
-            }
+async function getImagesByUserId(userId) {
+    try {
+        const [rows] = await pool.query('SELECT * FROM user_images WHERE user_id = ? ORDER BY upload_date DESC', [userId]);
+        return rows.map(row => ({
+            filename: row.filename,
+            url: row.url,
+            imgbbId: row.imgbb_id,
+            uploadDate: row.upload_date
         }));
-
-        const successes = results.filter(r => !r.error);
-        const errors = results.filter(r => r.error);
-
-        if (successes.length === 0) {
-            return res.status(400).json({ error: 'All images failed to process', details: errors });
-        }
-
-        res.json({
-            success: true,
-            results: successes,
-            errors: errors.length > 0 ? errors : undefined
-        });
     } catch (error) {
-        console.error('Server error:', error.message);
-        res.status(500).json({ error: `Server error: ${error.message}` });
+        throw new Error(`Failed to get images: ${error.message}`);
     }
-});
+}
 
-// Image library endpoint
-app.get('/api/images', authenticateToken, async (req, res) => {
+async function addImage(userId, filename, url, imgbbId) {
     try {
-        const images = await db.getImagesByUserId(req.user.id);
-        res.json({ images });
+        await pool.query(
+            'INSERT INTO user_images (user_id, filename, url, imgbb_id) VALUES (?, ?, ?, ?)',
+            [userId, filename, url, imgbbId]
+        );
     } catch (error) {
-        console.error('Error fetching images:', error.message);
-        res.status(500).json({ error: 'Failed to fetch images' });
+        throw new Error(`Failed to add image: ${error.message}`);
     }
-});
+}
 
-// Delete image from library
-app.delete('/api/images', authenticateToken, async (req, res) => {
+async function deleteImage(userId, index) {
     try {
-        const { index } = req.body;
-        if (typeof index !== 'number') {
-            return res.status(400).json({ error: 'Invalid index' });
+        const [rows] = await pool.query(
+            'SELECT id, imgbb_id FROM user_images WHERE user_id = ? ORDER BY upload_date DESC LIMIT 1 OFFSET ?',
+            [userId, index]
+        );
+        if (rows.length === 0) {
+            throw new Error('Image not found');
         }
-        await db.deleteImage(req.user.id, index);
-        res.json({ success: true });
+        await pool.query('DELETE FROM user_images WHERE id = ?', [rows[0].id]);
+        return rows[0].imgbb_id;
     } catch (error) {
-        console.error('Error deleting image:', error.message);
-        res.status(400).json({ error: error.message });
+        throw new Error(`Failed to delete image: ${error.message}`);
     }
-});
+}
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error('Unhandled error:', err.message);
-    if (err instanceof multer.MulterError) {
-        return res.status(400).json({ error: `Multer error: ${err.message}` });
-    }
-    res.status(500).json({ error: `Server error: ${err.message}` });
-});
-
-// Start server
-const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Server running on port ${port}`));
+module.exports = {
+    initDatabase,
+    createUser,
+    getUserByEmail,
+    updateUserApiKey,
+    updateUserPassword,
+    getImagesByUserId,
+    addImage,
+    deleteImage
+};
