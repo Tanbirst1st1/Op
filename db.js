@@ -28,6 +28,7 @@ async function initDatabase() {
                 user_id INT NOT NULL,
                 filename VARCHAR(255) NOT NULL,
                 url TEXT NOT NULL,
+                imgbb_id VARCHAR(50),
                 upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
@@ -64,12 +65,29 @@ async function getUserByEmail(email) {
     }
 }
 
+async function updateUserApiKey(userId, apiKey) {
+    try {
+        await pool.query('UPDATE users SET api_key = ? WHERE id = ?', [apiKey, userId]);
+    } catch (error) {
+        throw new Error(`Failed to update API key: ${error.message}`);
+    }
+}
+
+async function updateUserPassword(userId, password) {
+    try {
+        await pool.query('UPDATE users SET password = ? WHERE id = ?', [password, userId]);
+    } catch (error) {
+        throw new Error(`Failed to update password: ${error.message}`);
+    }
+}
+
 async function getImagesByUserId(userId) {
     try {
-        const [rows] = await pool.query('SELECT * FROM user_images WHERE user_id = ?', [userId]);
+        const [rows] = await pool.query('SELECT * FROM user_images WHERE user_id = ? ORDER BY upload_date DESC', [userId]);
         return rows.map(row => ({
             filename: row.filename,
             url: row.url,
+            imgbbId: row.imgbb_id,
             uploadDate: row.upload_date
         }));
     } catch (error) {
@@ -77,11 +95,11 @@ async function getImagesByUserId(userId) {
     }
 }
 
-async function addImage(userId, filename, url) {
+async function addImage(userId, filename, url, imgbbId) {
     try {
         await pool.query(
-            'INSERT INTO user_images (user_id, filename, url) VALUES (?, ?, ?)',
-            [userId, filename, url]
+            'INSERT INTO user_images (user_id, filename, url, imgbb_id) VALUES (?, ?, ?, ?)',
+            [userId, filename, url, imgbbId]
         );
     } catch (error) {
         throw new Error(`Failed to add image: ${error.message}`);
@@ -91,13 +109,14 @@ async function addImage(userId, filename, url) {
 async function deleteImage(userId, index) {
     try {
         const [rows] = await pool.query(
-            'SELECT id FROM user_images WHERE user_id = ? ORDER BY upload_date ASC LIMIT 1 OFFSET ?',
+            'SELECT id, imgbb_id FROM user_images WHERE user_id = ? ORDER BY upload_date DESC LIMIT 1 OFFSET ?',
             [userId, index]
         );
         if (rows.length === 0) {
             throw new Error('Image not found');
         }
         await pool.query('DELETE FROM user_images WHERE id = ?', [rows[0].id]);
+        return rows[0].imgbb_id;
     } catch (error) {
         throw new Error(`Failed to delete image: ${error.message}`);
     }
@@ -107,6 +126,8 @@ module.exports = {
     initDatabase,
     createUser,
     getUserByEmail,
+    updateUserApiKey,
+    updateUserPassword,
     getImagesByUserId,
     addImage,
     deleteImage
