@@ -60,8 +60,8 @@
                 <input type="password" id="password" class="form-control" required>
             </div>
             <div class="mb-3">
-                <label for="apiKey" class="form-label"><i class="bi bi-key me-2"></i>ImgBB or Imgur API Key</label>
-                <input type="text" id="apiKey" class="form-control" required placeholder="Enter your API key">
+                <label for="apiKey" class="form-label"><i class="bi bi-key me-2"></i>ImgBB API Key</label>
+                <input type="text" id="apiKey" class="form-control" required placeholder="Get from imgbb.com">
             </div>
             <button type="submit" class="btn btn-primary w-100"><i class="bi bi-person-plus me-2"></i>Sign Up</button>
         </form>
@@ -88,6 +88,12 @@
                     body: JSON.stringify({ email, password, apiKey })
                 });
 
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    throw new Error(`Invalid response from server: ${text.substring(0, 50)}...`);
+                }
+
                 const data = await response.json();
                 if (response.ok) {
                     localStorage.setItem('token', data.token);
@@ -96,7 +102,7 @@
                     statusDiv.innerHTML = `<div class="alert alert-danger">${data.error || 'Signup failed'}</div>`;
                 }
             } catch (error) {
-                statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+                statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}. Please try again or check server logs.</div>`;
             }
         });
     </script>
