@@ -1,134 +1,97 @@
-const mysql = require('mysql2/promise');
+// db.js
+import fetch from 'node-fetch';
 
-const pool = mysql.createPool({
-    host: 'mysql-11c55194-tanbirst2st2-d803.j.aivencloud.com',
-    user: 'avnadmin',
-    password: 'AVNS_6tjU411eMP5xgaxNai5',
-    database: 'defaultdb',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-});
+// Replace with your actual proxy URL
+const PROXY_URL = 'https://watchanimes4all.free.nf/db_proxy.php';
 
-async function initDatabase() {
-    try {
-        const connection = await pool.getConnection();
-        await connection.query(`
-            CREATE TABLE IF NOT EXISTS users (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                email VARCHAR(255) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL,
-                api_key VARCHAR(255) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-        await connection.query(`
-            CREATE TABLE IF NOT EXISTS user_images (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                filename VARCHAR(255) NOT NULL,
-                url TEXT NOT NULL,
-                imgbb_id VARCHAR(50),
-                upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )
-        `);
-        connection.release();
-        console.log('✅ Database initialized');
-    } catch (error) {
-        console.error('❌ Error initializing database:', error.message);
-        throw error;
-    }
+async function proxyRequest(action, params = {}) {
+  const res = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...params })
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Proxy ${action} failed: ${res.status} ${text}`);
+  }
+  const payload = await res.json();
+  if (payload.error) {
+    throw new Error(`Proxy ${action} error: ${payload.error}`);
+  }
+  return payload;
 }
 
-async function createUser(email, password, apiKey) {
-    try {
-        const [result] = await pool.query(
-            'INSERT INTO users (email, password, api_key) VALUES (?, ?, ?)',
-            [email, password, apiKey]
-        );
-        return { id: result.insertId, email, api_key: apiKey };
-    } catch (error) {
-        if (error.code === 'ER_DUP_ENTRY') {
-            throw new Error('Email already exists');
-        }
-        throw new Error(`Failed to create user: ${error.message}`);
-    }
+export async function initDatabase() {
+  try {
+    await proxyRequest('initDatabase');
+    console.log('✅ Database initialized via proxy');
+  } catch (err) {
+    console.error('❌ initDatabase:', err);
+    throw err;
+  }
 }
 
-async function getUserByEmail(email) {
-    try {
-        const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-        return rows[0] || null;
-    } catch (error) {
-        throw new Error(`Failed to get user: ${error.message}`);
+export async function createUser(email, password, apiKey) {
+  try {
+    const user = await proxyRequest('createUser', { email, password, apiKey });
+    return user; // { id, email, api_key }
+  } catch (err) {
+    if (/duplicate/i.test(err.message)) {
+      throw new Error('Email already exists');
     }
+    throw new Error(`Failed to create user: ${err.message}`);
+  }
 }
 
-async function updateUserApiKey(userId, apiKey) {
-    try {
-        await pool.query('UPDATE users SET api_key = ? WHERE id = ?', [apiKey, userId]);
-    } catch (error) {
-        throw new Error(`Failed to update API key: ${error.message}`);
-    }
+export async function getUserByEmail(email) {
+  try {
+    const user = await proxyRequest('getUserByEmail', { email });
+    return user; // null or { id, email, password, api_key, created_at }
+  } catch (err) {
+    throw new Error(`Failed to get user: ${err.message}`);
+  }
 }
 
-async function updateUserPassword(userId, password) {
-    try {
-        await pool.query('UPDATE users SET password = ? WHERE id = ?', [password, userId]);
-    } catch (error) {
-        throw new Error(`Failed to update password: ${error.message}`);
-    }
+export async function updateUserApiKey(userId, apiKey) {
+  try {
+    await proxyRequest('updateUserApiKey', { userId, apiKey });
+  } catch (err) {
+    throw new Error(`Failed to update API key: ${err.message}`);
+  }
 }
 
-async function getImagesByUserId(userId) {
-    try {
-        const [rows] = await pool.query('SELECT * FROM user_images WHERE user_id = ? ORDER BY upload_date DESC', [userId]);
-        return rows.map(row => ({
-            filename: row.filename,
-            url: row.url,
-            imgbbId: row.imgbb_id,
-            uploadDate: row.upload_date
-        }));
-    } catch (error) {
-        throw new Error(`Failed to get images: ${error.message}`);
-    }
+export async function updateUserPassword(userId, password) {
+  try {
+    await proxyRequest('updateUserPassword', { userId, password });
+  } catch (err) {
+    throw new Error(`Failed to update password: ${err.message}`);
+  }
 }
 
-async function addImage(userId, filename, url, imgbbId) {
-    try {
-        await pool.query(
-            'INSERT INTO user_images (user_id, filename, url, imgbb_id) VALUES (?, ?, ?, ?)',
-            [userId, filename, url, imgbbId]
-        );
-    } catch (error) {
-        throw new Error(`Failed to add image: ${error.message}`);
-    }
+export async function getImagesByUserId(userId) {
+  try {
+    const images = await proxyRequest('getImagesByUserId', { userId });
+    // Expecting an array of { filename, url, imgbbId, uploadDate }
+    return images;
+  } catch (err) {
+    throw new Error(`Failed to get images: ${err.message}`);
+  }
 }
 
-async function deleteImage(userId, index) {
-    try {
-        const [rows] = await pool.query(
-            'SELECT id, imgbb_id FROM user_images WHERE user_id = ? ORDER BY upload_date DESC LIMIT 1 OFFSET ?',
-            [userId, index]
-        );
-        if (rows.length === 0) {
-            throw new Error('Image not found');
-        }
-        await pool.query('DELETE FROM user_images WHERE id = ?', [rows[0].id]);
-        return rows[0].imgbb_id;
-    } catch (error) {
-        throw new Error(`Failed to delete image: ${error.message}`);
-    }
+export async function addImage(userId, filename, url, imgbbId) {
+  try {
+    await proxyRequest('addImage', { userId, filename, url, imgbbId });
+  } catch (err) {
+    throw new Error(`Failed to add image: ${err.message}`);
+  }
 }
 
-module.exports = {
-    initDatabase,
-    createUser,
-    getUserByEmail,
-    updateUserApiKey,
-    updateUserPassword,
-    getImagesByUserId,
-    addImage,
-    deleteImage
-};
+export async function deleteImage(userId, index) {
+  try {
+    // Proxy returns the deleted image’s imgbb_id
+    const { imgbb_id } = await proxyRequest('deleteImage', { userId, index });
+    return imgbb_id;
+  } catch (err) {
+    throw new Error(`Failed to delete image: ${err.message}`);
+  }
+}
