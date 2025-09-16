@@ -1,34 +1,9 @@
-// api/scraper.js
+// api/tv.js
 
 // ------- Simple In-memory Cache -------
 const cacheStore = new Map(); // key: target URL, value: { data, expiry }
 
 // ------- Helpers -------
-function readBaseURL() {
-  const envBase = (process.env.BASE_URL || "").trim();
-  if (/^https?:\/\//i.test(envBase)) return envBase.replace(/\/+$/, "");
-  return "https://multimovies.lol/"; // fallback default
-}
-
-function toAbs(base, href) {
-  if (!href) return "";
-  try {
-    return new URL(href, base).toString();
-  } catch {
-    return href;
-  }
-}
-
-function normalizeImageURL(u) {
-  if (!u || u.startsWith("data:")) return "";
-  let out = u.replace(/(\.[a-z0-9]{2,6})(\?.*)$/i, "$1");
-  try {
-    const urlObj = new URL(out);
-    if (urlObj.hostname.includes("image.tmdb.org")) return urlObj.toString();
-  } catch {}
-  return out.replace(/-\d+x\d+(?=(?:\.[a-z0-9]+){1,2}$)/i, "");
-}
-
 function slugifyTitle(s) {
   return String(s || "")
     .trim()
@@ -41,6 +16,16 @@ function slugifyTitle(s) {
     .replace(/^-|-$/g, "");
 }
 
+function normalizeImageURL(u) {
+  if (!u || u.startsWith("data:")) return "";
+  let out = u.replace(/(\.[a-z0-9]{2,6})(\?.*)$/i, "$1");
+  try {
+    const urlObj = new URL(out);
+    if (urlObj.hostname.includes("image.tmdb.org")) return urlObj.toString();
+  } catch {}
+  return out.replace(/-\d+x\d+(?=(?:\.[a-z0-9]+){1,2}$)/i, "");
+}
+
 async function fetchHTML(target, timeoutMs = 20000) {
   const ac = new AbortController();
   const t = setTimeout(() => ac.abort(), timeoutMs);
@@ -48,7 +33,8 @@ async function fetchHTML(target, timeoutMs = 20000) {
     const resp = await fetch(target, {
       method: "GET",
       headers: {
-        "user-agent": "Mozilla/5.0 (compatible; Scraper/3.0; +https://vercel.com/)",
+        "user-agent":
+          "Mozilla/5.0 (compatible; Scraper/2.0; +https://vercel.com/)",
         accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
       signal: ac.signal,
@@ -82,39 +68,47 @@ async function fetchSourcesFromVideo(url) {
   }
 }
 
-// ---- Parse Show Page ----
+// ---- Parse Show Page (basic regex DOM) ----
 function parsePage(html, pageUrl, siteRoot) {
-  const dom = new DOMParser().parseFromString(html, "text/html");
+  function extract(regex, str) {
+    const m = regex.exec(str);
+    return m ? m[1].trim() : "";
+  }
 
   const title =
-    dom.querySelector("#single .sheader .data h1")?.textContent.trim() ||
-    dom.querySelector('meta[itemprop="name"]')?.getAttribute("content") ||
-    "";
+    extract(/<h1[^>]*>([^<]+)<\/h1>/i, html) ||
+    extract(/<meta itemprop="name" content="([^"]+)"/i, html);
 
-  let poster = dom.querySelector("#single .sheader .poster img")?.getAttribute("src") || "";
-  poster = normalizeImageURL(toAbs(siteRoot, poster));
+  let poster = extract(/<img[^>]+src="([^"]+)"[^>]*class="[^"]*poster/i, html);
+  poster = normalizeImageURL(new URL(poster, siteRoot).toString());
 
-  const synopsis = dom.querySelector("#info .wp-content")?.textContent.trim() || "";
+  const synopsis = extract(
+    /<div id="info"[\s\S]*?<div class="wp-content">([\s\S]*?)<\/div>/i,
+    html
+  ).replace(/<[^>]+>/g, " ");
 
   const seasons = [];
-  dom.querySelectorAll("#seasons .se-c").forEach((se) => {
-    const seasonNumberText = se.querySelector(".se-q .se-t")?.textContent.trim() || "";
-    const seasonNumber = seasonNumberText ? parseInt(seasonNumberText, 10) : null;
-    const seasonTitle = se.querySelector(".se-q .title")?.textContent.trim() || "";
+  const seasonBlocks = html.split('<div class="se-c"').slice(1);
+  for (const sb of seasonBlocks) {
+    const seasonNumber = parseInt(
+      extract(/<span class="se-t">(\d+)<\/span>/, sb),
+      10
+    );
+    const seasonTitle = extract(/<span class="title">([^<]+)<\/span>/, sb);
 
     const episodes = [];
-    se.querySelectorAll(".se-a ul.episodios > li").forEach((li) => {
-      const numerando = li.querySelector(".numerando")?.textContent.trim() || "";
+    const episodeBlocks = sb.split("<li").slice(1);
+    for (const eb of episodeBlocks) {
+      const numerando = extract(/<span class="numerando">([^<]+)<\/span>/, eb);
       const eMatch = numerando.match(/(\d+)\s*-\s*(\d+)/);
       const seasonNo = eMatch ? parseInt(eMatch[1], 10) : null;
       const episodeNo = eMatch ? parseInt(eMatch[2], 10) : null;
 
-      const a = li.querySelector(".episodiotitle a");
-      const epTitle = a?.textContent.trim() || "";
-      const epUrl = toAbs(siteRoot, a?.getAttribute("href") || "");
-      const airDate = li.querySelector(".episodiotitle .date")?.textContent.trim() || "";
-      const thumbRaw = li.querySelector(".imagen img")?.getAttribute("src") || "";
-      const thumb = normalizeImageURL(toAbs(siteRoot, thumbRaw));
+      const epTitle = extract(/class="episodiotitle">[^<]*<a[^>]*>([^<]+)<\/a>/, eb);
+      const epUrl = extract(/class="episodiotitle">[^<]*<a href="([^"]+)"/, eb);
+      const airDate = extract(/<span class="date">([^<]+)<\/span>/, eb);
+      const thumbRaw = extract(/<img[^>]+src="([^"]+)"/, eb);
+      const thumb = normalizeImageURL(new URL(thumbRaw, siteRoot).toString());
 
       episodes.push({
         seasonNo,
@@ -125,12 +119,11 @@ function parsePage(html, pageUrl, siteRoot) {
         thumbnail: thumb,
         sources: [],
       });
-    });
-
-    if (seasonNumber !== null || episodes.length) {
+    }
+    if (seasonNumber || episodes.length) {
       seasons.push({ seasonNumber, seasonTitle, episodes });
     }
-  });
+  }
 
   return {
     ok: true,
@@ -140,12 +133,12 @@ function parsePage(html, pageUrl, siteRoot) {
   };
 }
 
-// ---- Preloader: fetch episode sources one by one ----
-async function preloadEpisodeSources(seasons, delay = 1200) {
+// ---- Preloader: fetch episode sources ----
+async function preloadEpisodeSources(seasons, delay = 1500) {
   for (const season of seasons) {
     for (const ep of season.episodes) {
       ep.sources = await fetchSourcesFromVideo(ep.url);
-      await new Promise((r) => setTimeout(r, delay)); // avoid crash
+      await new Promise((r) => setTimeout(r, delay));
     }
   }
   return seasons;
@@ -154,53 +147,44 @@ async function preloadEpisodeSources(seasons, delay = 1200) {
 // ------- Handler -------
 export default async function handler(req, res) {
   try {
-    const q = req.query || {};
-    const base = (q.base && String(q.base)) || readBaseURL();
+    const { query } = req;
+    const base = "https://multimovies.lol/";
+    let target = query.url || "";
 
-    let target = (q.url && String(q.url).trim()) || "";
     if (!target) {
-      const slugParam = q.slug ? String(q.slug) : "";
-      const origin = base.replace(/\/+$/, "");
-      if (slugParam) {
-        const slug = slugifyTitle(slugParam);
-        const section = (q.section && String(q.section)) || "tvshows";
-        target = `${origin}/${section.replace(/^\/|\/$/g, "")}/${slug}/`;
-      } else {
-        target = `${origin}/tvshows/example-show/`;
+      const slugParam = query.slug ? String(query.slug) : "";
+      if (!slugParam) {
+        res.status(400).json({ ok: false, error: "Missing slug or url" });
+        return;
       }
+      const section = query.section || "tvshows";
+      target = `${base}${section}/${slugifyTitle(slugParam)}/`;
     }
 
-    let siteRoot = "";
-    try {
-      siteRoot = new URL(base || target).origin;
-    } catch {}
-
-    // --- Cache ---
     const now = Date.now();
     const cached = cacheStore.get(target);
     if (cached && cached.expiry > now) {
-      res.setHeader("cache-control", "s-maxage=500, stale-while-revalidate=600");
+      res.setHeader(
+        "cache-control",
+        "s-maxage=500, stale-while-revalidate=600"
+      );
       res.status(200).json({ ...cached.data, cache: true });
       return;
     }
 
-    // --- Fetch + Parse ---
     const html = await fetchHTML(target);
-    let data = parsePage(html, target, siteRoot || target);
+    let data = parsePage(html, target, base);
 
-    // Preload sources (slow but safe)
-    data.seasons = await preloadEpisodeSources(data.seasons, 1500);
+    data.seasons = await preloadEpisodeSources(data.seasons);
 
     cacheStore.set(target, { data, expiry: now + 500 * 1000 });
 
     res.setHeader("cache-control", "s-maxage=500, stale-while-revalidate=600");
     res.status(200).json({ ...data, cache: false });
   } catch (err) {
-    const dev = process.env.NODE_ENV !== "production";
     res.status(500).json({
       ok: false,
-      error: err && err.message ? err.message : String(err),
-      stack: dev ? err.stack : undefined,
+      error: err.message || String(err),
     });
   }
 }
